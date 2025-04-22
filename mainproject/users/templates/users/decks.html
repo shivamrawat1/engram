@@ -1,0 +1,343 @@
+{% extends "users/base.html" %}
+
+{% block authenticated_content %}
+<div class="page-header">
+    <h2>Decks</h2>
+</div>
+<div class="page-content">
+    <div class="decks-container">
+        <!-- Create Deck Card (always first) -->
+        <div class="deck-card create-deck" id="create-deck-btn">
+            <div class="deck-icon">+</div>
+            <div class="deck-name">Create</div>
+        </div>
+        
+        <!-- Existing Decks -->
+        {% for deck in decks %}
+        <div class="deck-card" onclick="window.location='{% url 'users:deck_detail' deck.id %}'">
+            <div class="deck-options" onclick="event.stopPropagation();">
+                <div class="options-dots" data-deck-id="{{ deck.id }}">⋮</div>
+                <div class="options-menu" id="options-menu-{{ deck.id }}">
+                    <div class="option-item rename-deck" data-deck-id="{{ deck.id }}">Rename</div>
+                    <div class="option-item delete-deck" data-deck-id="{{ deck.id }}">Delete</div>
+                    <div class="option-item manage-personas" data-deck-id="{{ deck.id }}">Manage Personas</div>
+                </div>
+            </div>
+            <div class="deck-info">
+                <div class="card-count">No. of cards: {{ deck.card_count }}</div>
+                <div class="deck-name">{{ deck.name }}</div>
+                {% if deck.personas.all %}
+                <div class="deck-personas">
+                    <small>Reminders by: 
+                        {% for persona in deck.personas.all %}
+                        <span class="persona-badge">{{ persona.name }}</span>
+                        {% endfor %}
+                    </small>
+                </div>
+                {% endif %}
+                <a href="{% url 'users:review_deck' deck.id %}" class="review-btn" onclick="event.stopPropagation();">Review</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Create Deck Modal -->
+<div id="create-deck-modal" class="modal">
+    <div class="modal-content">
+        <form action="{% url 'users:create_deck' %}" method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="deck_name">What is the name of your deck?</label>
+                <input type="text" id="deck_name" name="deck_name" required>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="cancel-create-deck" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Rename Deck Modal -->
+<div id="rename-deck-modal" class="modal">
+    <div class="modal-content">
+        <form id="rename-deck-form" action="" method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="rename_deck_name">New name for your deck:</label>
+                <input type="text" id="rename_deck_name" name="deck_name" required>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="cancel-rename-deck" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Deck Confirmation Modal -->
+<div id="delete-deck-modal" class="modal">
+    <div class="modal-content">
+        <h3>Delete Deck</h3>
+        <p>Are you sure you want to delete this deck? This action cannot be undone.</p>
+        <form id="delete-deck-form" action="" method="post">
+            {% csrf_token %}
+            <div class="modal-buttons">
+                <button type="button" id="cancel-delete-deck" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Manage Personas Modal -->
+<div id="manage-personas-modal" class="modal">
+    <div class="modal-content">
+        <h3>Manage Reminder Personas</h3>
+        <p>Select personas to send you review reminders for this deck:</p>
+        <form id="manage-personas-form" action="" method="post">
+            {% csrf_token %}
+            <div class="personas-selection">
+                <!-- Will be populated dynamically -->
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="cancel-manage-personas" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Global variable to store current deck ID
+let currentDeckId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+    
+    // Add event listeners for manage personas
+    document.querySelectorAll('.manage-personas').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const deckId = this.getAttribute('data-deck-id');
+            console.log('Manage personas button clicked for deck:', deckId);
+            openManagePersonasModal(deckId);
+        });
+    });
+    
+    // Cancel manage personas
+    document.getElementById('cancel-manage-personas').addEventListener('click', function() {
+        closeManagePersonasModal();
+    });
+    
+    // Submit manage personas form
+    document.getElementById('manage-personas-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        console.log('Manage personas form submitted');
+        savePersonasForDeck();
+    });
+});
+
+// Function to open manage personas modal
+function openManagePersonasModal(deckId) {
+    console.log('Opening manage personas modal for deck:', deckId);
+    currentDeckId = deckId;
+    
+    // Close any open options menus
+    document.querySelectorAll('.options-menu').forEach(menu => {
+        menu.style.display = 'none';
+    });
+    
+    // Fetch personas for this user and the deck's current personas
+    fetch(`/users/decks/${deckId}/personas/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server responded with ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received personas data:', data);
+            
+            // Populate the personas selection
+            const container = document.querySelector('.personas-selection');
+            container.innerHTML = '';
+            
+            if (data.all_personas.length === 0) {
+                container.innerHTML = '<p>You have no personas. <a href="/users/personas/">Create a persona</a> first.</p>';
+            } else {
+                data.all_personas.forEach(persona => {
+                    const isChecked = data.deck_personas.includes(persona.id);
+                    container.innerHTML += `
+                        <div class="persona-option">
+                            <input type="checkbox" id="persona-${persona.id}" name="personas" value="${persona.id}" ${isChecked ? 'checked' : ''}>
+                            <label for="persona-${persona.id}">
+                                <strong>${persona.name}</strong> (${persona.persona_type}, ${persona.tone})
+                            </label>
+                        </div>
+                    `;
+                });
+            }
+            
+            // Show the modal
+            document.getElementById('manage-personas-modal').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('There was a problem loading personas: ' + error.message);
+        });
+}
+
+// Function to close manage personas modal
+function closeManagePersonasModal() {
+    document.getElementById('manage-personas-modal').style.display = 'none';
+    currentDeckId = null;
+}
+
+// Function to save personas for a deck
+function savePersonasForDeck() {
+    const form = document.getElementById('manage-personas-form');
+    const checkboxes = form.querySelectorAll('input[name="personas"]:checked');
+    const personaIds = Array.from(checkboxes).map(cb => cb.value);
+    
+    // Show some feedback to the user
+    const saveBtn = form.querySelector('button[type="submit"]');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Saving...';
+    saveBtn.disabled = true;
+    
+    // Get the CSRF token
+    const csrftoken = getCookie('csrftoken');
+    
+    console.log('Saving personas for deck:', currentDeckId);
+    console.log('Selected persona IDs:', personaIds);
+    
+    fetch(`/users/decks/${currentDeckId}/update-personas/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            persona_ids: personaIds
+        })
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            return response.text().then(text => {
+                throw new Error(`Server responded with ${response.status}: ${text}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Success:', data);
+        // Update the UI to show the attached personas
+        updateDeckPersonasUI(currentDeckId, data.personas);
+        
+        // Close the modal
+        closeManagePersonasModal();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('There was a problem saving personas for this deck: ' + error.message);
+    })
+    .finally(() => {
+        // Reset button state
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    });
+}
+
+// Function to update the UI with attached personas
+function updateDeckPersonasUI(deckId, personas) {
+    const deckCard = document.querySelector(`.deck-card[onclick*="${deckId}"]`);
+    if (!deckCard) return;
+    
+    let personasDiv = deckCard.querySelector('.deck-personas');
+    
+    if (personas.length === 0) {
+        // Remove the personas div if it exists
+        if (personasDiv) {
+            personasDiv.remove();
+        }
+        return;
+    }
+    
+    // Create or update the personas div
+    if (!personasDiv) {
+        personasDiv = document.createElement('div');
+        personasDiv.className = 'deck-personas';
+        deckCard.querySelector('.deck-info').insertBefore(
+            personasDiv, 
+            deckCard.querySelector('.review-btn')
+        );
+    }
+    
+    // Update the content
+    personasDiv.innerHTML = `
+        <small>Reminders by: 
+            ${personas.map(p => `<span class="persona-badge">${p.name}</span>`).join(' ')}
+        </small>
+    `;
+}
+
+// Function to get CSRF token from cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+<style>
+/* ... existing styles ... */
+
+/* Styles for persona badges */
+.deck-personas {
+    margin-bottom: 10px;
+}
+
+.persona-badge {
+    display: inline-block;
+    background-color: #e9ecef;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.8rem;
+    margin-right: 5px;
+    color: #495057;
+}
+
+/* Styles for persona selection in modal */
+.personas-selection {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.persona-option {
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+.persona-option:last-child {
+    border-bottom: none;
+}
+
+.persona-option label {
+    margin-left: 8px;
+    cursor: pointer;
+}
+</style>
+{% endblock %} 

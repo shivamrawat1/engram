@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Review Reminder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .email-container {
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .email-header {
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .email-body {
+            margin-bottom: 30px;
+        }
+        .review-button {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .email-footer {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+            padding-top: 10px;
+        }
+        .persona-signature {
+            font-style: italic;
+            margin-top: 20px;
+        }
+        .reminder-image {
+            max-width: 100%;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <h2>Flashcard Review Reminder</h2>
+        </div>
+        
+        <div class="email-body">
+            {{ email_body|safe|linebreaks }}
+            
+            {% if include_image %}
+            <div style="text-align: center;">
+                <img src="cid:reminder_image.jpg" alt="Study Reminder" class="reminder-image">
+            </div>
+            {% endif %}
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="{{ deck_url }}" class="review-button">Review {{ deck_name }} Now</a>
+            </div>
+            
+            <div class="persona-signature">
+                - {{ persona_name }}
+            </div>
+        </div>
+        
+        <div class="email-footer">
+            <p>This is an automated reminder from your flashcard application.</p>
+            <p>If you no longer wish to receive these reminders, you can remove personas from your deck.</p>
+        </div>
+    </div>
+</body>
+</html> 

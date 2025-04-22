@@ -1,0 +1,108 @@
+{% extends "users/base.html" %}
+
+{% block authenticated_content %}
+<div class="page-header">
+    <h2>Decks - {{ deck.name }} - Review</h2>
+</div>
+<div class="page-content">
+    <div class="review-progress">
+        <span>{{ reviewed_cards }} / {{ total_cards }} cards reviewed ({{ due_cards }} due now)</span>
+    </div>
+    
+    <div class="review-card">
+        <div class="question-section">
+            <div class="question-text">{{ card.question }}</div>
+        </div>
+        
+        <div class="review-message">
+            Think about the question before seeing the answer
+        </div>
+        
+        <div class="review-intervals">
+            <span class="interval-label">First</span>
+            <span class="interval-label">1 min</span>
+            <span class="interval-label">2 min</span>
+            <span class="interval-label">3 min</span>
+            <span class="interval-label">4 min</span>
+            <span class="interval-label">1 week</span>
+            <div class="review-progress-dots">
+                {% for i in "12345" %}
+                    {% if forloop.counter <= card.times_reviewed %}
+                        <span class="circle filled"></span>
+                    {% else %}
+                        <span class="circle"></span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="review-controls">
+            <button id="show-think-btn" class="btn">Show / Think</button>
+        </div>
+        
+        <div class="answer-section" style="display: none;">
+            <div class="answer-text">{{ card.answer }}</div>
+            
+            <div class="review-buttons">
+                <form action="{% url 'users:mark_card_reviewed' card.id %}" method="post" class="review-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="remembered" value="false">
+                    <button type="submit" class="btn btn-secondary">Didn't Remember</button>
+                </form>
+                
+                <form action="{% url 'users:mark_card_reviewed' card.id %}" method="post" class="review-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="remembered" value="true">
+                    <button type="submit" class="btn">Remembered</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Cards Reviewed Modal -->
+<div id="all-reviewed-modal" class="modal {% if all_reviewed %}show{% endif %}">
+    <div class="modal-content">
+        <h3>🎉 Congratulations! 🎉</h3>
+        <p>You've successfully reviewed all cards in this deck!</p>
+        <div class="modal-buttons">
+            <a href="{% url 'users:decks' %}" class="btn">Back to All Decks</a>
+            <a href="{% url 'users:deck_detail' deck.id %}" class="btn">View Deck</a>
+            <button id="continue-review-btn" class="btn">Continue Reviewing</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const showThinkBtn = document.getElementById('show-think-btn');
+        const answerSection = document.querySelector('.answer-section');
+        const allReviewedModal = document.getElementById('all-reviewed-modal');
+        const continueReviewBtn = document.getElementById('continue-review-btn');
+        
+        // Show/Think button functionality
+        if (showThinkBtn) {
+            showThinkBtn.addEventListener('click', function() {
+                answerSection.style.display = 'block';
+                showThinkBtn.style.display = 'none';
+            });
+        }
+        
+        // Continue reviewing button
+        if (continueReviewBtn) {
+            continueReviewBtn.addEventListener('click', function() {
+                allReviewedModal.classList.remove('show');
+            });
+        }
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === allReviewedModal) {
+                allReviewedModal.classList.remove('show');
+            }
+        });
+    });
+</script>
+{% endblock %} 

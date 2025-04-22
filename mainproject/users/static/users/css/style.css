@@ -1,0 +1,646 @@
+/* Main stylesheet for the users app */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: white;
+}
+
+/* Navbar styles */
+.navbar {
+    background-color: #333;
+    overflow: hidden;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar a {
+    color: white;
+    text-decoration: none;
+    margin-right: 15px;
+}
+
+.navbar a:hover {
+    color: #ddd;
+}
+
+.site-title {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0;
+}
+
+/* Container styles */
+.container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+/* Landing page styles */
+.landing-content {
+    text-align: center;
+    margin-top: 50px;
+}
+
+.landing-content h1 {
+    font-size: 3em;
+    margin-bottom: 20px;
+}
+
+/* Messages styles */
+.messages {
+    list-style: none;
+    padding: 0;
+}
+
+.messages li {
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+}
+
+.messages .success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.messages .error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Form styles */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #333;
+    color: white;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn:hover {
+    background-color: #555;
+}
+
+.logout-button {
+    background: none;
+    border: none;
+    color: black;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+}
+
+/* Dashboard layout */
+.dashboard-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar styles */
+.sidebar {
+    width: 250px;
+    background-color: white;
+    color: black;
+    border-right: 1px solid black;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.user-profile {
+    padding: 20px;
+    border-bottom: 1px solid black;
+    position: relative;
+}
+
+.user-profile h3 {
+    margin: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.user-profile h3:before {
+    content: '';
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    background-color: #333;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.user-dropdown {
+    position: absolute;
+    background-color: white;
+    border: 1px solid black;
+    border-radius: 0;
+    width: 100%;
+    left: 0;
+    top: 100%;
+    z-index: 10;
+    display: none;
+    padding: 10px 20px;
+}
+
+.user-dropdown.active {
+    display: block;
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li {
+    padding: 0;
+    cursor: pointer;
+    border-bottom: 1px solid black;
+}
+
+.sidebar-menu li:hover {
+    background-color: #f5f5f5;
+}
+
+.sidebar-menu li.active {
+    background-color: #f0f0f0;
+}
+
+.sidebar-menu a {
+    color: black;
+    text-decoration: none;
+    display: block;
+    padding: 15px 20px;
+}
+
+.sidebar-bottom {
+    margin-top: auto;
+    border-top: 1px solid black;
+}
+
+/* Main content area */
+.main-content {
+    flex: 1;
+    padding: 20px;
+    background-color: white;
+}
+
+.page-header {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid black;
+}
+
+.page-header h2 {
+    margin: 0;
+    color: black;
+}
+
+.page-content {
+    padding: 20px;
+    background-color: white;
+    border: 1px solid black;
+    min-height: 300px;
+}
+
+/* Decks page styles */
+.decks-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.deck-card {
+    width: 200px;
+    height: 150px;
+    border: 1px solid black;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    background-color: #f5f5f5;
+    position: relative;
+}
+
+.deck-card:hover {
+    background-color: #e5e5e5;
+}
+
+.create-deck {
+    background-color: #e0e0e0;
+}
+
+.deck-icon {
+    font-size: 2em;
+    margin-bottom: 10px;
+}
+
+.deck-name {
+    font-weight: bold;
+}
+
+.deck-info {
+    text-align: center;
+    width: 100%;
+}
+
+.card-count {
+    font-size: 0.8em;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid black;
+    width: 400px;
+    max-width: 80%;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-buttons .btn {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+}
+
+.btn-secondary {
+    background-color: #ccc;
+    color: black;
+}
+
+.btn-secondary:hover {
+    background-color: #bbb;
+}
+
+.deck-options {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.options-dots {
+    font-size: 20px;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.options-dots:hover {
+    background-color: #ddd;
+}
+
+.options-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: white;
+    border: 1px solid black;
+    border-radius: 4px;
+    width: 120px;
+    display: none;
+    z-index: 10;
+}
+
+.options-menu.active {
+    display: block;
+}
+
+.option-item {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.option-item:hover {
+    background-color: #f0f0f0;
+}
+
+.option-item:not(:last-child) {
+    border-bottom: 1px solid #eee;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+/* Deck detail page styles */
+.deck-detail-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+.cards-table-container {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.cards-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.cards-table th,
+.cards-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Column widths */
+.cards-table th:nth-child(1),
+.cards-table td:nth-child(1) {
+    width: 5%;
+}
+
+.cards-table th:nth-child(2),
+.cards-table td:nth-child(2) {
+    width: 45%;
+}
+
+.cards-table th:nth-child(3),
+.cards-table td:nth-child(3) {
+    width: 15%;
+}
+
+.cards-table th:nth-child(4),
+.cards-table td:nth-child(4) {
+    width: 25%;
+}
+
+.cards-table th:nth-child(5),
+.cards-table td:nth-child(5) {
+    width: 10%;
+    text-align: center;
+}
+
+.card-options {
+    position: relative;
+    display: inline-block;
+}
+
+.card-options .options-dots {
+    font-size: 16px;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-options-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: white;
+    border: 1px solid black;
+    border-radius: 4px;
+    width: 120px;
+    display: none;
+    z-index: 100;
+    right: auto;
+    left: 0;
+}
+
+.cards-table td:last-child .card-options-menu {
+    left: auto;
+    right: 0;
+}
+
+.options-menu.active {
+    display: block;
+}
+
+.cards-table td {
+    position: relative;
+    overflow: visible !important;
+}
+
+.cards-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+.cards-table tr:hover {
+    background-color: #f9f9f9;
+}
+
+.no-cards {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+}
+
+.review-circles {
+    display: flex;
+    gap: 5px;
+}
+
+.circle {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid #333;
+    display: inline-block;
+}
+
+.circle.filled {
+    background-color: #333;
+}
+
+/* Form textarea styles */
+textarea {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    min-height: 100px;
+    resize: vertical;
+}
+
+/* Add these styles to your existing CSS file */
+
+.card-options {
+    position: relative;
+    display: inline-block;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+.card-options .options-dots {
+    font-size: 16px;
+}
+
+.card-options-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 20;
+}
+
+/* Make the question cell have relative positioning for proper menu placement */
+.cards-table td {
+    position: relative;
+}
+
+/* Review button on deck cards */
+.review-btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 5px 10px;
+    background-color: #333;
+    color: white;
+    text-decoration: none;
+    border-radius: 3px;
+}
+
+.review-btn:hover {
+    background-color: #555;
+}
+
+/* Review page styles */
+.review-progress {
+    margin-bottom: 20px;
+    text-align: right;
+}
+
+.review-card {
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background-color: white;
+}
+
+.question-section {
+    margin-bottom: 20px;
+}
+
+.question-text {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.review-message {
+    margin: 15px 0;
+    font-style: italic;
+    color: #666;
+    text-align: center;
+}
+
+.review-intervals {
+    display: flex;
+    justify-content: space-between;
+    margin: 20px 0;
+    position: relative;
+    padding-bottom: 15px;
+}
+
+.interval-label {
+    font-size: 0.8em;
+    color: #666;
+}
+
+.review-progress-dots {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.review-controls {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.answer-section {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+
+.answer-text {
+    margin-bottom: 20px;
+}
+
+.review-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.review-form {
+    flex: 1;
+    max-width: 45%;
+}
+
+.review-form button {
+    width: 100%;
+}
+
+/* Modal show class */
+.modal.show {
+    display: block;
+}

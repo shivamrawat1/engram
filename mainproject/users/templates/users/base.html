@@ -1,0 +1,75 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Mom Website</title>
+    <link rel="stylesheet" href="{% static 'users/css/style.css' %}">
+</head>
+<body>
+    {% if user.is_authenticated %}
+        <!-- Logged in layout with sidebar -->
+        <div class="dashboard-container">
+            <div class="sidebar">
+                <div class="user-profile">
+                    <h3>{{ user.username }}</h3>
+                    <div class="user-dropdown">
+                        <form action="{% url 'users:logout' %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="logout-button">Logout</button>
+                        </form>
+                    </div>
+                </div>
+                <ul class="sidebar-menu">
+                    <li><a href="{% url 'users:dashboard' %}">Dashboard</a></li>
+                    <li><a href="{% url 'users:decks' %}">Decks</a></li>
+                    <li><a href="{% url 'users:personas' %}">Personas</a></li>
+                    <li><a href="{% url 'users:tutor' %}">Tutor</a></li>
+                </ul>
+                <div class="sidebar-bottom">
+                    <ul class="sidebar-menu">
+                        <li><a href="{% url 'users:getting_started' %}">Getting Started</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                {% if messages %}
+                    <ul class="messages">
+                        {% for message in messages %}
+                            <li class="{{ message.tags }}">{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                
+                {% block authenticated_content %}{% endblock %}
+            </div>
+        </div>
+    {% else %}
+        <!-- Non-logged in layout -->
+        <div class="navbar">
+            <h1 class="site-title">YourMom</h1>
+            <div>
+                <a href="{% url 'users:login' %}">Login</a>
+                <a href="{% url 'users:register' %}">Register</a>
+            </div>
+        </div>
+        
+        <div class="container">
+            {% if messages %}
+                <ul class="messages">
+                    {% for message in messages %}
+                        <li class="{{ message.tags }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            
+            {% block content %}{% endblock %}
+        </div>
+    {% endif %}
+    
+    <script src="{% static 'users/js/main.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

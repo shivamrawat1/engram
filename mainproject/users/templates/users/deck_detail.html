@@ -1,0 +1,116 @@
+{% extends "users/base.html" %}
+
+{% block authenticated_content %}
+<div class="page-header">
+    <h2>Decks - {{ deck.name }}</h2>
+</div>
+<div class="page-content">
+    <div class="deck-detail-header">
+        <button id="create-card-btn" class="btn">Create</button>
+    </div>
+    
+    <div class="cards-table-container">
+        <table class="cards-table">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>Question</th>
+                    <th>Last Reviewed</th>
+                    <th>Progress</th>
+                    <th>Options</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for card in cards %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ card.question }}</td>
+                    <td>{% if card.last_reviewed %}{{ card.last_reviewed|date:"M d, Y H:i" }}{% else %}Never{% endif %}</td>
+                    <td>
+                        <div class="review-circles">
+                            {% for i in "12345" %}
+                                {% if forloop.counter <= card.times_reviewed %}
+                                    <span class="circle filled"></span>
+                                {% else %}
+                                    <span class="circle"></span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="card-options">
+                            <div class="options-dots" data-card-id="{{ card.id }}">⋮</div>
+                            <div class="options-menu card-options-menu" id="card-options-menu-{{ card.id }}">
+                                <div class="option-item edit-card" data-card-id="{{ card.id }}" data-question="{{ card.question }}" data-answer="{{ card.answer }}">Edit</div>
+                                <div class="option-item delete-card" data-card-id="{{ card.id }}">Delete</div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="no-cards">No cards in this deck yet. Click "Create" to add your first card.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Card Modal -->
+<div id="create-card-modal" class="modal">
+    <div class="modal-content">
+        <form action="{% url 'users:create_card' deck.id %}" method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="question">Question</label>
+                <textarea id="question" name="question" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="answer">Answer</label>
+                <textarea id="answer" name="answer" required></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="cancel-create-card" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Card Modal -->
+<div id="edit-card-modal" class="modal">
+    <div class="modal-content">
+        <form id="edit-card-form" action="" method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="edit_question">Question</label>
+                <textarea id="edit_question" name="question" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="edit_answer">Answer</label>
+                <textarea id="edit_answer" name="answer" required></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="cancel-edit-card" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Card Confirmation Modal -->
+<div id="delete-card-modal" class="modal">
+    <div class="modal-content">
+        <h3>Delete Card</h3>
+        <p>Are you sure you want to delete this card? This action cannot be undone.</p>
+        <form id="delete-card-form" action="" method="post">
+            {% csrf_token %}
+            <div class="modal-buttons">
+                <button type="button" id="cancel-delete-card" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 
