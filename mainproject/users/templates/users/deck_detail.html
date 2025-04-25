@@ -9,6 +9,7 @@
         <div class="deck-actions">
             <a href="{% url 'users:decks' %}" class="btn btn-secondary">Back to All Decks</a>
             <button id="create-card-btn" class="btn">Create</button>
+            <button id="analyze-deck-btn" class="btn btn-info">Analyze Deck</button>
         </div>
     </div>
     
@@ -117,12 +118,123 @@
         </form>
     </div>
 </div>
+
+<!-- Analyze Deck Modal -->
+<div id="analyze-deck-modal" class="modal">
+    <div class="modal-content">
+        <h3>Deck Analysis</h3>
+        <div id="analysis-loading" class="text-center">
+            <p>Analyzing your deck content...</p>
+            <div class="spinner"></div>
+        </div>
+        <div id="analysis-results" style="display: none;">
+            <h4>Knowledge Gaps Analysis</h4>
+            <div id="analysis-content"></div>
+        </div>
+        <div class="modal-buttons">
+            <button type="button" id="close-analysis" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Existing code...
+        // Create card modal functionality
+        const createCardBtn = document.getElementById('create-card-btn');
+        const createCardModal = document.getElementById('create-card-modal');
+        const cancelCreateCard = document.getElementById('cancel-create-card');
+        
+        createCardBtn.addEventListener('click', function() {
+            createCardModal.style.display = 'block';
+        });
+        
+        cancelCreateCard.addEventListener('click', function() {
+            createCardModal.style.display = 'none';
+        });
+        
+        // Edit card functionality
+        const editBtns = document.querySelectorAll('.edit-card');
+        const editCardModal = document.getElementById('edit-card-modal');
+        const cancelEditCard = document.getElementById('cancel-edit-card');
+        const editCardForm = document.getElementById('edit-card-form');
+        
+        editBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const cardId = this.getAttribute('data-card-id');
+                const question = this.getAttribute('data-question');
+                const answer = this.getAttribute('data-answer');
+                
+                document.getElementById('edit_question').value = question;
+                document.getElementById('edit_answer').value = answer;
+                editCardForm.action = `/users/card/${cardId}/edit/`;
+                editCardModal.style.display = 'block';
+                
+                // Hide any open options menu
+                document.querySelectorAll('.options-menu').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            });
+        });
+        
+        cancelEditCard.addEventListener('click', function() {
+            editCardModal.style.display = 'none';
+        });
+        
+        // Delete card functionality
+        const deleteBtns = document.querySelectorAll('.delete-card');
+        const deleteCardModal = document.getElementById('delete-card-modal');
+        const cancelDeleteCard = document.getElementById('cancel-delete-card');
+        const deleteCardForm = document.getElementById('delete-card-form');
+        
+        deleteBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const cardId = this.getAttribute('data-card-id');
+                deleteCardForm.action = `/users/card/${cardId}/delete/`;
+                deleteCardModal.style.display = 'block';
+                
+                // Hide any open options menu
+                document.querySelectorAll('.options-menu').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            });
+        });
+        
+        cancelDeleteCard.addEventListener('click', function() {
+            deleteCardModal.style.display = 'none';
+        });
+        
+        // Options menu toggle
+        const optionsDots = document.querySelectorAll('.options-dots');
+        
+        optionsDots.forEach(dots => {
+            dots.addEventListener('click', function() {
+                const cardId = this.getAttribute('data-card-id');
+                const menu = document.getElementById(`card-options-menu-${cardId}`);
+                
+                // Close all other menus first
+                document.querySelectorAll('.options-menu').forEach(m => {
+                    if (m !== menu) {
+                        m.style.display = 'none';
+                    }
+                });
+                
+                // Toggle this menu
+                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+            });
+        });
+        
+        // Close menus when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.matches('.options-dots')) {
+                document.querySelectorAll('.options-menu').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            }
+        });
         
         // Reset card streak functionality
         document.querySelectorAll('.reset-card').forEach(btn => {
@@ -133,6 +245,64 @@
                     window.location.href = `/users/card/${cardId}/reset-streak/`;
                 }
             });
+        });
+        
+        // Analyze deck functionality
+        const analyzeDeckBtn = document.getElementById('analyze-deck-btn');
+        const analyzeDeckModal = document.getElementById('analyze-deck-modal');
+        const closeAnalysis = document.getElementById('close-analysis');
+        const analysisLoading = document.getElementById('analysis-loading');
+        const analysisResults = document.getElementById('analysis-results');
+        const analysisContent = document.getElementById('analysis-content');
+        
+        analyzeDeckBtn.addEventListener('click', function() {
+            analyzeDeckModal.style.display = 'block';
+            analysisLoading.style.display = 'block';
+            analysisResults.style.display = 'none';
+            
+            // Call the backend API to analyze the deck
+            fetch(`/users/deck/{{ deck.id }}/analyze/`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        analysisContent.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                    } else {
+                        analysisContent.innerHTML = data.analysis;
+                    }
+                    analysisLoading.style.display = 'none';
+                    analysisResults.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    analysisContent.innerHTML = `<p class="error">Failed to analyze deck: ${error.message}</p>`;
+                    analysisLoading.style.display = 'none';
+                    analysisResults.style.display = 'block';
+                });
+        });
+        
+        closeAnalysis.addEventListener('click', function() {
+            analyzeDeckModal.style.display = 'none';
+        });
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', function(e) {
+            if (e.target === createCardModal) {
+                createCardModal.style.display = 'none';
+            }
+            if (e.target === editCardModal) {
+                editCardModal.style.display = 'none';
+            }
+            if (e.target === deleteCardModal) {
+                deleteCardModal.style.display = 'none';
+            }
+            if (e.target === analyzeDeckModal) {
+                analyzeDeckModal.style.display = 'none';
+            }
         });
     });
 </script>
@@ -146,6 +316,73 @@
         display: flex;
         gap: 10px;
         align-items: center;
+    }
+    
+    .btn-info {
+        background-color: #17a2b8;
+        color: white;
+    }
+    
+    .spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border-left-color: #09f;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .text-center {
+        text-align: center;
+    }
+    
+    #analysis-content {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    
+    /* Improved modal styling for better scrolling */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .modal-content {
+        background-color: #fff;
+        margin: 5% auto;
+        padding: 20px;
+        border-radius: 5px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Error message styling */
+    .error {
+        color: #d9534f;
+        padding: 10px;
+        background-color: #f8d7da;
+        border-radius: 4px;
+        margin-bottom: 10px;
     }
 </style>
 {% endblock %} 

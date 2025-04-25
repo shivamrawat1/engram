@@ -33,4 +33,5 @@ urlpatterns = [
     path('deck/<int:deck_id>/review-failed/', views.review_failed_cards, name='review_failed_cards'),
     path('card/<int:card_id>/reset-streak/', views.reset_card_streak, name='reset_card_streak'),
     path('deck/<int:deck_id>/questions/', views.deck_questions, name='deck_questions'),
+    path('deck/<int:deck_id>/analyze/', views.analyze_deck, name='analyze_deck'),
 ]

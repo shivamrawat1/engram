@@ -1116,3 +1116,70 @@ def deck_questions(request, deck_id):
         return JsonResponse({'questions': questions})
     except Deck.DoesNotExist:
         return JsonResponse({'error': 'Deck not found'}, status=404)
+
+@login_required
+def analyze_deck(request, deck_id):
+    """API endpoint to analyze a deck's content and suggest knowledge gaps"""
+    try:
+        deck = Deck.objects.get(id=deck_id, user=request.user)
+        cards = Card.objects.filter(deck=deck)
+        
+        if not cards.exists():
+            return JsonResponse({
+                'analysis': 'Your deck is empty. Add some cards to get an analysis.'
+            })
+        
+        # Get API key from environment variable or settings
+        api_key = os.environ.get('OPENAI_API_KEY') or getattr(settings, 'OPENAI_API_KEY', None)
+        if not api_key:
+            return JsonResponse({
+                'analysis': 'AI analysis is not available. Please contact the administrator.'
+            })
+        
+        # Configure OpenAI client
+        client = openai.OpenAI(api_key=api_key)
+        
+        # Format cards for the AI
+        cards_content = []
+        for card in cards:
+            cards_content.append({
+                'question': card.question,
+                'answer': card.answer
+            })
+        
+        # Create the prompt for OpenAI
+        prompt = f"""
+        Analyze this flashcard deck titled "{deck.name}" and identify potential knowledge gaps.
+        
+        Here are the existing flashcards:
+        {json.dumps(cards_content, indent=2)}
+        
+        Based on these cards, suggest 3-4 additional topics or concepts that would complement 
+        the existing content and fill knowledge gaps. Focus on content-based recommendations, 
+        not study patterns.
+        
+        Your response should be concise (around 150 words) and formatted as a simple HTML list 
+        with a brief introduction and conclusion. Do not include any markdown formatting.
+        """
+        
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",  # You can use gpt-4 for better results if available
+            messages=[
+                {"role": "system", "content": "You are a helpful educational assistant that analyzes flashcard content and identifies knowledge gaps."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500,
+            temperature=0.7
+        )
+        
+        # Extract the analysis
+        analysis = response.choices[0].message.content.strip()
+        
+        return JsonResponse({'analysis': analysis})
+    
+    except Deck.DoesNotExist:
+        return JsonResponse({'error': 'Deck not found'}, status=404)
+    except Exception as e:
+        print(f"Error analyzing deck: {str(e)}")
+        return JsonResponse({'error': f"An error occurred: {str(e)}"}, status=500)
