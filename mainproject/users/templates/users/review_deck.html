@@ -14,16 +14,13 @@
             <div class="modal-buttons">
                 <a href="{% url 'users:decks' %}" class="btn btn-primary">Back to All Decks</a>
                 <a href="{% url 'users:deck_detail' deck.id %}" class="btn">View Deck</a>
-                {% if failed_cards_count > 0 %}
-                <a href="{% url 'users:review_failed_cards' deck.id %}" class="btn btn-secondary">Review Failed Cards ({{ failed_cards_count }})</a>
-                {% endif %}
             </div>
         </div>
     </div>
     {% else %}
     <div class="review-header">
         <div class="review-progress">
-            <span> {{ due_cards }} cards remained to be reviewed</span>
+            <span>{{ due_cards }} cards remained to be reviewed</span>
         </div>
         <div class="review-actions">
             <a href="{% url 'users:decks' %}" class="btn btn-primary">Back to All Decks</a>
@@ -35,32 +32,6 @@
             <div class="question-text">{{ card.question }}</div>
         </div>
         
-        <div class="review-intervals">
-            <div class="intervals-header">Review Progress:</div>
-            <div class="intervals-container">
-                <div class="interval-item">
-                    <span class="interval-label">Start</span>
-                    <span class="circle {% if card.times_reviewed >= 1 %}filled{% endif %}"></span>
-                </div>
-                <div class="interval-item">
-                    <span class="interval-label">1 min</span>
-                    <span class="circle {% if card.times_reviewed >= 2 %}filled{% endif %}"></span>
-                </div>
-                <div class="interval-item">
-                    <span class="interval-label">2 min</span>
-                    <span class="circle {% if card.times_reviewed >= 3 %}filled{% endif %}"></span>
-                </div>
-                <div class="interval-item">
-                    <span class="interval-label">3 min</span>
-                    <span class="circle {% if card.times_reviewed >= 4 %}filled{% endif %}"></span>
-                </div>
-                <div class="interval-item">
-                    <span class="interval-label">4 min</span>
-                    <span class="circle {% if card.times_reviewed >= 5 %}filled{% endif %}"></span>
-                </div>
-            </div>
-        </div>
-        
         <div class="review-controls">
             <button id="show-answer-btn" class="btn btn-primary">Show Answer</button>
         </div>
@@ -68,17 +39,29 @@
         <div class="answer-section" style="display: none;">
             <div class="answer-text">{{ card.answer }}</div>
             
-            <div class="review-buttons">
+            <div class="sm-rating-explanation">
+                <p>Rate your recall (0-5):</p>
+                <div class="rating-scale">
+                    <span class="rating-item"><strong>0:</strong> Complete blackout</span>
+                    <span class="rating-item"><strong>1:</strong> Wrong, but recognized</span>
+                    <span class="rating-item"><strong>2:</strong> Almost remembered</span>
+                    <span class="rating-item"><strong>3:</strong> Correct with effort</span>
+                    <span class="rating-item"><strong>4:</strong> Correct with hesitation</span>
+                    <span class="rating-item"><strong>5:</strong> Perfect recall</span>
+                </div>
+            </div>
+            
+            <div class="sm-rating-buttons">
                 <form action="{% url 'users:mark_card_reviewed' card.id %}" method="post" class="review-form">
                     {% csrf_token %}
-                    <input type="hidden" name="remembered" value="false">
-                    <button type="submit" class="btn btn-secondary">Didn't Remember</button>
-                </form>
-                
-                <form action="{% url 'users:mark_card_reviewed' card.id %}" method="post" class="review-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="remembered" value="true">
-                    <button type="submit" class="btn btn-primary">Remembered</button>
+                    <div class="quality-buttons">
+                        <button type="submit" name="quality" value="0" class="btn btn-quality q0">0</button>
+                        <button type="submit" name="quality" value="1" class="btn btn-quality q1">1</button>
+                        <button type="submit" name="quality" value="2" class="btn btn-quality q2">2</button>
+                        <button type="submit" name="quality" value="3" class="btn btn-quality q3">3</button>
+                        <button type="submit" name="quality" value="4" class="btn btn-quality q4">4</button>
+                        <button type="submit" name="quality" value="5" class="btn btn-quality q5">5</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -92,9 +75,6 @@
             <div class="modal-buttons">
                 <a href="{% url 'users:decks' %}" class="btn btn-primary">Back to All Decks</a>
                 <a href="{% url 'users:deck_detail' deck.id %}" class="btn">View Deck</a>
-                {% if failed_cards_count > 0 %}
-                <a href="{% url 'users:review_failed_cards' deck.id %}" class="btn btn-secondary">Review Failed Cards ({{ failed_cards_count }})</a>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -124,6 +104,27 @@
                 window.location.href = "{% url 'users:decks' %}";
             }
         });
+        
+        // Keyboard shortcuts for quality ratings
+        document.addEventListener('keydown', function(event) {
+            // Only process keyboard shortcuts if answer is visible
+            if (answerSection.style.display === 'block') {
+                // Map number keys 0-5 to quality ratings
+                if (event.key >= '0' && event.key <= '5') {
+                    const qualityButtons = document.querySelectorAll('.btn-quality');
+                    const buttonIndex = parseInt(event.key);
+                    if (qualityButtons[buttonIndex]) {
+                        qualityButtons[buttonIndex].click();
+                    }
+                }
+            } else {
+                // If answer is not visible, spacebar shows the answer
+                if (event.key === ' ' && showAnswerBtn) {
+                    event.preventDefault(); // Prevent page scrolling
+                    showAnswerBtn.click();
+                }
+            }
+        });
     });
 </script>
 
@@ -143,6 +144,9 @@
         margin-bottom: 20px;
         background-color: white;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        max-width: 800px;
+        margin: 0 auto 20px;
+        overflow-x: hidden;
     }
     
     .question-section {
@@ -169,22 +173,119 @@
         margin-bottom: 10px;
     }
     
-    .intervals-container {
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
+    /* SM-15 specific styles */
+    .sm-progress {
+        padding: 10px;
     }
     
-    .interval-item {
+    .sm-info {
+        display: flex;
+        justify-content: space-around;
+        flex-wrap: wrap;
+    }
+    
+    .sm-stat {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 5px;
+        padding: 10px;
+        min-width: 120px;
     }
     
-    .interval-label {
-        font-size: 0.8em;
+    .sm-label {
+        font-size: 0.85em;
         color: #666;
+        margin-bottom: 5px;
+    }
+    
+    .sm-value {
+        font-size: 1.2em;
+        font-weight: bold;
+    }
+    
+    .sm-rating-explanation {
+        background-color: #f0f0f0;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 15px 0;
+        font-size: 0.9em;
+    }
+    
+    .sm-rating-explanation p {
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+    
+    .rating-scale {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .rating-item {
+        flex: 1 1 30%;
+        min-width: 120px;
+        background-color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85em;
+    }
+    
+    .sm-rating-buttons {
+        margin-top: 20px;
+    }
+    
+    .quality-buttons {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    
+    .btn-quality {
+        flex: 1;
+        padding: 15px 0;
+        font-size: 1.2em;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-quality:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Color gradient for quality buttons */
+    .q0 {
+        background-color: #ff6b6b;
+        color: white;
+    }
+    
+    .q1 {
+        background-color: #ff9e7a;
+        color: white;
+    }
+    
+    .q2 {
+        background-color: #ffd166;
+        color: #333;
+    }
+    
+    .q3 {
+        background-color: #c5e99b;
+        color: #333;
+    }
+    
+    .q4 {
+        background-color: #8dd1c3;
+        color: #333;
+    }
+    
+    .q5 {
+        background-color: #4caf50;
+        color: white;
     }
     
     .review-controls {
@@ -210,22 +311,6 @@
         font-size: 1.1em;
     }
     
-    .review-buttons {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 25px;
-        gap: 15px;
-    }
-    
-    .review-form {
-        flex: 1;
-    }
-    
-    .review-form button {
-        width: 100%;
-        padding: 12px;
-    }
-    
     .btn-primary {
         background-color: #333;
         color: white;
@@ -242,29 +327,6 @@
     
     .btn-secondary:hover {
         background-color: #dee2e6;
-    }
-    
-    .stats-summary {
-        display: flex;
-        justify-content: center;
-        gap: 40px;
-        margin: 20px 0;
-    }
-    
-    .stat-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    .stat-value {
-        font-size: 2em;
-        font-weight: bold;
-    }
-    
-    .stat-label {
-        font-size: 0.9em;
-        color: #666;
     }
     
     /* Enhance the modal */

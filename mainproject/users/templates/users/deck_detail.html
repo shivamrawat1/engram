@@ -20,7 +20,7 @@
                     <th>No.</th>
                     <th>Question</th>
                     <th>Last Reviewed</th>
-                    <th>Progress</th>
+                    <th>Next Review</th>
                     <th>Options</th>
                 </tr>
             </thead>
@@ -31,14 +31,17 @@
                     <td>{{ card.question }}</td>
                     <td>{% if card.last_reviewed %}{{ card.last_reviewed|date:"M d, Y H:i" }}{% else %}Never{% endif %}</td>
                     <td>
-                        <div class="review-circles">
-                            {% for i in "12345" %}
-                                {% if forloop.counter <= card.times_reviewed %}
-                                    <span class="circle filled"></span>
+                        <div class="review-status">
+                            {% if card.next_review_time %}
+                                {% if card.next_review_time <= now %}
+                                    <span class="review-due">Due now</span>
                                 {% else %}
-                                    <span class="circle"></span>
+                                    <span class="review-scheduled">{{ card.next_review_time|date:"M d, Y" }}</span>
+                                    <span class="review-time">{{ card.next_review_time|time:"H:i" }}</span>
                                 {% endif %}
-                            {% endfor %}
+                            {% else %}
+                                <span class="review-new">New card</span>
+                            {% endif %}
                         </div>
                     </td>
                     <td>
@@ -77,9 +80,22 @@
             </div>
             <div class="modal-buttons">
                 <button type="button" id="cancel-create-card" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="analyze-card-btn" class="btn btn-info">Analyze Card</button>
                 <button type="submit" class="btn">Save</button>
             </div>
         </form>
+        
+        <!-- Card Analysis Results -->
+        <div id="card-analysis-container" style="display: none; margin-top: 20px;">
+            <h4>Card Analysis</h4>
+            <div id="card-analysis-loading" class="text-center">
+                <p>Analyzing your card...</p>
+                <div class="spinner"></div>
+            </div>
+            <div id="card-analysis-results" style="display: none;">
+                <div id="card-analysis-content"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -98,9 +114,22 @@
             </div>
             <div class="modal-buttons">
                 <button type="button" id="cancel-edit-card" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="analyze-edit-card-btn" class="btn btn-info">Analyze Card</button>
                 <button type="submit" class="btn">Save</button>
             </div>
         </form>
+        
+        <!-- Edit Card Analysis Results -->
+        <div id="edit-card-analysis-container" style="display: none; margin-top: 20px;">
+            <h4>Card Analysis</h4>
+            <div id="edit-card-analysis-loading" class="text-center">
+                <p>Analyzing your card...</p>
+                <div class="spinner"></div>
+            </div>
+            <div id="edit-card-analysis-results" style="display: none;">
+                <div id="edit-card-analysis-content"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -304,6 +333,130 @@
                 analyzeDeckModal.style.display = 'none';
             }
         });
+
+        // Card analysis functionality
+        const analyzeCardBtn = document.getElementById('analyze-card-btn');
+        const cardAnalysisContainer = document.getElementById('card-analysis-container');
+        const cardAnalysisLoading = document.getElementById('card-analysis-loading');
+        const cardAnalysisResults = document.getElementById('card-analysis-results');
+        const cardAnalysisContent = document.getElementById('card-analysis-content');
+
+        analyzeCardBtn.addEventListener('click', function() {
+            const question = document.getElementById('question').value.trim();
+            const answer = document.getElementById('answer').value.trim();
+            
+            if (!question || !answer) {
+                alert('Please enter both question and answer before analyzing.');
+                return;
+            }
+            
+            // Show the analysis container and loading indicator
+            cardAnalysisContainer.style.display = 'block';
+            cardAnalysisLoading.style.display = 'block';
+            cardAnalysisResults.style.display = 'none';
+            
+            // Call the API to analyze the card
+            fetch('/users/analyze-card/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    question: question,
+                    answer: answer
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    cardAnalysisContent.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                } else {
+                    cardAnalysisContent.innerHTML = data.analysis;
+                }
+                cardAnalysisLoading.style.display = 'none';
+                cardAnalysisResults.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                cardAnalysisContent.innerHTML = `<p class="error">Failed to analyze card: ${error.message}</p>`;
+                cardAnalysisLoading.style.display = 'none';
+                cardAnalysisResults.style.display = 'block';
+            });
+        });
+
+        // Hide analysis when modal is closed
+        cancelCreateCard.addEventListener('click', function() {
+            createCardModal.style.display = 'none';
+            cardAnalysisContainer.style.display = 'none';
+        });
+
+        // Edit card analysis functionality
+        const analyzeEditCardBtn = document.getElementById('analyze-edit-card-btn');
+        const editCardAnalysisContainer = document.getElementById('edit-card-analysis-container');
+        const editCardAnalysisLoading = document.getElementById('edit-card-analysis-loading');
+        const editCardAnalysisResults = document.getElementById('edit-card-analysis-results');
+        const editCardAnalysisContent = document.getElementById('edit-card-analysis-content');
+
+        analyzeEditCardBtn.addEventListener('click', function() {
+            const question = document.getElementById('edit_question').value.trim();
+            const answer = document.getElementById('edit_answer').value.trim();
+            
+            if (!question || !answer) {
+                alert('Please enter both question and answer before analyzing.');
+                return;
+            }
+            
+            // Show the analysis container and loading indicator
+            editCardAnalysisContainer.style.display = 'block';
+            editCardAnalysisLoading.style.display = 'block';
+            editCardAnalysisResults.style.display = 'none';
+            
+            // Call the API to analyze the card
+            fetch('/users/analyze-card/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    question: question,
+                    answer: answer
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    editCardAnalysisContent.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                } else {
+                    editCardAnalysisContent.innerHTML = data.analysis;
+                }
+                editCardAnalysisLoading.style.display = 'none';
+                editCardAnalysisResults.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                editCardAnalysisContent.innerHTML = `<p class="error">Failed to analyze card: ${error.message}</p>`;
+                editCardAnalysisLoading.style.display = 'none';
+                editCardAnalysisResults.style.display = 'block';
+            });
+        });
+
+        // Hide analysis when edit modal is closed
+        cancelEditCard.addEventListener('click', function() {
+            editCardModal.style.display = 'none';
+            editCardAnalysisContainer.style.display = 'none';
+        });
     });
 </script>
 
@@ -384,5 +537,94 @@
         border-radius: 4px;
         margin-bottom: 10px;
     }
+
+    #card-analysis-content {
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        font-size: 14px;
+    }
+
+    .rating {
+        display: inline-block;
+        margin-right: 5px;
+    }
+
+    .rating-good {
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .rating-medium {
+        color: #ffc107;
+        font-weight: bold;
+    }
+
+    .rating-poor {
+        color: #dc3545;
+        font-weight: bold;
+    }
+
+    .suggestion {
+        background-color: #f8f9fa;
+        padding: 8px;
+        border-left: 3px solid #17a2b8;
+        margin-top: 10px;
+    }
+
+    /* SM-15 specific styles for deck detail */
+    .review-status {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .review-due {
+        color: #dc3545;
+        font-weight: bold;
+        padding: 2px 6px;
+        background-color: rgba(220, 53, 69, 0.1);
+        border-radius: 4px;
+    }
+    
+    .review-scheduled {
+        color: #28a745;
+        font-weight: 500;
+    }
+    
+    .review-time {
+        font-size: 0.85em;
+        color: #6c757d;
+    }
+    
+    .review-new {
+        color: #007bff;
+        font-style: italic;
+    }
+    
+    .sm-info-small {
+        display: flex;
+        gap: 10px;
+        margin-top: 5px;
+        font-size: 0.85em;
+    }
+    
+    .sm-streak {
+        color: #fd7e14;
+    }
+    
+    .sm-interval {
+        color: #6610f2;
+    }
+    
+    .sm-ef {
+        color: #6f42c1;
+    }
+    
+    /* Add Font Awesome if not already included */
+    @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
 </style>
 {% endblock %} 

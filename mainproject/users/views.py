@@ -115,7 +115,15 @@ def deck_detail(request, deck_id):
     try:
         deck = Deck.objects.get(id=deck_id, user=request.user)
         cards = Card.objects.filter(deck=deck)
-        return render(request, 'users/deck_detail.html', {'deck': deck, 'cards': cards})
+        
+        # Pass the current time to the template for comparison
+        now = timezone.now()
+        
+        return render(request, 'users/deck_detail.html', {
+            'deck': deck, 
+            'cards': cards,
+            'now': now
+        })
     except Deck.DoesNotExist:
         messages.error(request, 'Deck not found.')
         return redirect('users:decks')
@@ -202,8 +210,8 @@ def review_deck(request, deck_id):
             models.Q(next_review_time__lte=current_time)
         )
         
-        # Count failed cards (times_reviewed = 0 but have been reviewed before)
-        failed_cards_count = all_cards.filter(times_reviewed=0, last_reviewed__isnull=False).count()
+        # Count failed cards (consecutive_correct = 0 but have been reviewed before)
+        failed_cards_count = all_cards.filter(consecutive_correct=0, last_reviewed__isnull=False).count()
         
         if not due_cards.exists():
             # All cards have been reviewed - show congratulations message
@@ -211,23 +219,23 @@ def review_deck(request, deck_id):
                 'deck': deck,
                 'no_cards_to_review': True,
                 'reviewed_cards': all_cards.filter(last_reviewed__isnull=False).count(),
-                'remembered_cards': all_cards.filter(times_reviewed__gt=0).count(),
+                'remembered_cards': all_cards.filter(consecutive_correct__gt=0).count(),
                 'total_cards': all_cards.count(),
                 'due_cards': 0,
                 'failed_cards_count': failed_cards_count
             })
         
         # Prioritize cards:
-        # 1. Never reviewed (times_reviewed = 0 and last_reviewed is null)
-        # 2. Reset cards (times_reviewed = 0 and last_reviewed is not null)
+        # 1. Never reviewed (last_reviewed is null)
+        # 2. Failed cards (consecutive_correct = 0 and last_reviewed is not null)
         # 3. Cards due the longest
-        never_reviewed = due_cards.filter(times_reviewed=0, last_reviewed__isnull=True)
+        never_reviewed = due_cards.filter(last_reviewed__isnull=True)
         if never_reviewed.exists():
             card_to_review = never_reviewed.first()
         else:
-            reset_cards = due_cards.filter(times_reviewed=0, last_reviewed__isnull=False)
-            if reset_cards.exists():
-                card_to_review = reset_cards.first()
+            failed_cards = due_cards.filter(consecutive_correct=0, last_reviewed__isnull=False)
+            if failed_cards.exists():
+                card_to_review = failed_cards.first()
             else:
                 # Get the card that's been due the longest
                 card_to_review = due_cards.order_by('next_review_time').first()
@@ -241,9 +249,9 @@ def review_deck(request, deck_id):
             'all_reviewed': all_reviewed,
             'no_cards_to_review': False,
             'total_cards': all_cards.count(),
-            'reviewed_cards': all_cards.filter(times_reviewed__gt=0).count(),
+            'reviewed_cards': all_cards.filter(last_reviewed__isnull=False).count(),
             'due_cards': due_cards.count(),
-            'remembered_cards': all_cards.filter(times_reviewed__gt=0).count(),
+            'remembered_cards': all_cards.filter(consecutive_correct__gt=0).count(),
             'failed_cards_count': failed_cards_count
         })
     except Deck.DoesNotExist:
@@ -259,26 +267,50 @@ def mark_card_reviewed(request, card_id):
             messages.error(request, 'You do not have permission to review this card.')
             return redirect('users:decks')
             
-        remembered = request.POST.get('remembered') == 'true'
+        # Get the quality rating from the form (0-5 scale)
+        quality = int(request.POST.get('quality', '0'))
         current_time = timezone.now()
         
+        # Store the old interval for display purposes
+        old_interval = card.current_interval
+        
+        # Calculate the next interval using SM-15 algorithm
+        next_interval_days = card.calculate_next_interval(quality)
+        
         # Update card review status
-        if remembered:
+        if quality >= 3:  # Correct response
             card.times_reviewed += 1
-            if card.times_reviewed > 5:
-                card.times_reviewed = 5  # Cap at 5
-                
-            # Set next review time based on the interval
-            interval_minutes = card.get_review_interval()
-            if interval_minutes > 0:
-                card.next_review_time = current_time + timezone.timedelta(minutes=interval_minutes)
-            else:
-                card.next_review_time = None  # Review immediately
-        else:
-            card.times_reviewed = 0  # Reset if not remembered
-            # Add a small delay (5 minutes) before showing the card again
-            card.next_review_time = current_time + timezone.timedelta(minutes=5)
             
+            # Set next review time based on the interval
+            if next_interval_days > 0:
+                card.next_review_time = current_time + timezone.timedelta(days=next_interval_days)
+                
+                # Add a message to show the new interval
+                if next_interval_days == 1:
+                    messages.success(request, f'Correct! Next review tomorrow. (Quality: {quality}/5)')
+                else:
+                    messages.success(request, f'Correct! Next review in {next_interval_days} days. (Quality: {quality}/5)')
+            else:
+                # If interval is 0, review again in 10 minutes
+                card.next_review_time = current_time + timezone.timedelta(minutes=10)
+                messages.success(request, f'Correct! Next review in 10 minutes. (Quality: {quality}/5)')
+        else:  # Incorrect response
+            # Reset times_reviewed for compatibility with existing code
+            card.times_reviewed = 0
+            
+            # For incorrect responses, show again after a short delay based on quality
+            if quality == 0:  # Complete blackout
+                delay_minutes = 1  # Review very soon
+            elif quality == 1:  # Incorrect but recognized
+                delay_minutes = 5  # A bit longer delay
+            else:  # quality == 2, almost correct
+                delay_minutes = 10  # Even longer delay
+                
+            card.next_review_time = current_time + timezone.timedelta(minutes=delay_minutes)
+            messages.warning(request, f'You will see this card again in {delay_minutes} minutes. (Quality: {quality}/5)')
+        
+        # Update the current interval
+        card.current_interval = next_interval_days
         card.last_reviewed = current_time
         card.save()
         
@@ -943,10 +975,10 @@ def review_failed_cards(request, deck_id):
     try:
         deck = Deck.objects.get(id=deck_id, user=request.user)
         
-        # Get cards that were failed (times_reviewed = 0 but have been reviewed before)
+        # Get cards that were failed (consecutive_correct = 0 but have been reviewed before)
         failed_cards = Card.objects.filter(
             deck=deck,
-            times_reviewed=0,
+            consecutive_correct=0,
             last_reviewed__isnull=False
         )
         
@@ -966,9 +998,9 @@ def review_failed_cards(request, deck_id):
             'all_reviewed': False,
             'no_cards_to_review': False,
             'total_cards': all_cards.count(),
-            'reviewed_cards': all_cards.filter(times_reviewed__gt=0).count(),
+            'reviewed_cards': all_cards.filter(last_reviewed__isnull=False).count(),
             'due_cards': failed_cards.count(),
-            'remembered_cards': all_cards.filter(times_reviewed__gt=0).count(),
+            'remembered_cards': all_cards.filter(consecutive_correct__gt=0).count(),
             'failed_cards_count': failed_cards.count(),
             'reviewing_failed_cards': True
         })
@@ -987,6 +1019,9 @@ def reset_card_streak(request, card_id):
             
         # Reset the card's progress
         card.times_reviewed = 0
+        card.consecutive_correct = 0
+        card.current_interval = 0
+        card.easiness_factor = 2.5  # Reset to default
         card.next_review_time = timezone.now()  # Make it due immediately
         card.save()
         
@@ -1182,4 +1217,66 @@ def analyze_deck(request, deck_id):
         return JsonResponse({'error': 'Deck not found'}, status=404)
     except Exception as e:
         print(f"Error analyzing deck: {str(e)}")
+        return JsonResponse({'error': f"An error occurred: {str(e)}"}, status=500)
+
+@login_required
+def analyze_card(request):
+    """API endpoint to analyze a flashcard for quality"""
+    try:
+        if request.method != 'POST':
+            return JsonResponse({'error': 'Only POST method is allowed'}, status=405)
+            
+        data = json.loads(request.body)
+        question = data.get('question', '')
+        answer = data.get('answer', '')
+        
+        if not question or not answer:
+            return JsonResponse({'error': 'Both question and answer are required'}, status=400)
+        
+        # Get API key from environment variable or settings
+        api_key = os.environ.get('OPENAI_API_KEY') or getattr(settings, 'OPENAI_API_KEY', None)
+        if not api_key:
+            return JsonResponse({
+                'analysis': 'AI analysis is not available. Please contact the administrator.'
+            })
+        
+        # Configure OpenAI client
+        client = openai.OpenAI(api_key=api_key)
+        
+        # Create the prompt for OpenAI - simplified to focus on suggestions only
+        prompt = f"""
+        Analyze this flashcard based on these three core properties:
+
+        1. Atomic — tests one clear idea, no bundling multiple facts together.
+        2. Clear prompt — question is precise and forces active retrieval, not recognition.
+        3. Stable answer — answer is unambiguous, doesn't vary over time or context.
+
+        Question: {question}
+        Answer: {answer}
+
+        Do NOT provide ratings. Instead, provide specific suggestions to improve the card based on these properties.
+        Keep your response concise (around 100-150 words) and format it as simple HTML.
+        Focus only on practical suggestions for improvement.
+        """
+        
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful educational assistant that provides concise, practical suggestions to improve flashcards."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=400,
+            temperature=0.7
+        )
+        
+        # Extract the analysis
+        analysis = response.choices[0].message.content.strip()
+        
+        return JsonResponse({'analysis': analysis})
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        print(f"Error analyzing card: {str(e)}")
         return JsonResponse({'error': f"An error occurred: {str(e)}"}, status=500)

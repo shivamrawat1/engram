@@ -34,4 +34,5 @@ urlpatterns = [
     path('card/<int:card_id>/reset-streak/', views.reset_card_streak, name='reset_card_streak'),
     path('deck/<int:deck_id>/questions/', views.deck_questions, name='deck_questions'),
     path('deck/<int:deck_id>/analyze/', views.analyze_deck, name='analyze_deck'),
+    path('analyze-card/', views.analyze_card, name='analyze_card'),
 ]
