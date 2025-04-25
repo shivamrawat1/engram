@@ -4,6 +4,7 @@
 <div class="page-header">
     <h2>Decks</h2>
 </div>
+
 <div class="page-content">
     <div class="decks-container">
         <!-- Create Deck Card (always first) -->
@@ -94,8 +95,8 @@
 <!-- Manage Personas Modal -->
 <div id="manage-personas-modal" class="modal">
     <div class="modal-content">
-        <h3>Manage Reminder Personas</h3>
-        <p>Select personas to send you review reminders for this deck:</p>
+        <h3>Select Reminder Persona</h3>
+        <p>Select a persona to send you review reminders for this deck:</p>
         <form id="manage-personas-form" action="" method="post">
             {% csrf_token %}
             <div class="personas-selection">
@@ -114,7 +115,31 @@
 let currentDeckId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // ... existing code ...
+    // Add event listeners for options menu dots
+    document.querySelectorAll('.options-dots').forEach(dots => {
+        dots.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const deckId = this.getAttribute('data-deck-id');
+            const menu = document.getElementById(`options-menu-${deckId}`);
+            
+            // Close all other menus first
+            document.querySelectorAll('.options-menu').forEach(m => {
+                if (m.id !== `options-menu-${deckId}`) {
+                    m.style.display = 'none';
+                }
+            });
+            
+            // Toggle this menu
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        });
+    });
+    
+    // Close menus when clicking elsewhere on the document
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.options-menu').forEach(menu => {
+            menu.style.display = 'none';
+        });
+    });
     
     // Add event listeners for manage personas
     document.querySelectorAll('.manage-personas').forEach(btn => {
@@ -123,6 +148,32 @@ document.addEventListener('DOMContentLoaded', function() {
             const deckId = this.getAttribute('data-deck-id');
             console.log('Manage personas button clicked for deck:', deckId);
             openManagePersonasModal(deckId);
+        });
+    });
+    
+    // Add event listeners for rename deck
+    document.querySelectorAll('.rename-deck').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const deckId = this.getAttribute('data-deck-id');
+            // Your existing rename deck code
+            // ...
+            
+            // Close the options menu
+            document.getElementById(`options-menu-${deckId}`).style.display = 'none';
+        });
+    });
+    
+    // Add event listeners for delete deck
+    document.querySelectorAll('.delete-deck').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const deckId = this.getAttribute('data-deck-id');
+            // Your existing delete deck code
+            // ...
+            
+            // Close the options menu
+            document.getElementById(`options-menu-${deckId}`).style.display = 'none';
         });
     });
     
@@ -135,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('manage-personas-form').addEventListener('submit', function(e) {
         e.preventDefault();
         console.log('Manage personas form submitted');
-        savePersonasForDeck();
+        savePersonaForDeck();
     });
 });
 
@@ -149,7 +200,7 @@ function openManagePersonasModal(deckId) {
         menu.style.display = 'none';
     });
     
-    // Fetch personas for this user and the deck's current personas
+    // Fetch personas for this user and the deck's current persona
     fetch(`/users/decks/${deckId}/personas/`)
         .then(response => {
             if (!response.ok) {
@@ -167,11 +218,22 @@ function openManagePersonasModal(deckId) {
             if (data.all_personas.length === 0) {
                 container.innerHTML = '<p>You have no personas. <a href="/users/personas/">Create a persona</a> first.</p>';
             } else {
+                // Add a "None" option
+                container.innerHTML += `
+                    <div class="persona-option">
+                        <input type="radio" id="persona-none" name="persona" value="" ${data.deck_personas.length === 0 ? 'checked' : ''}>
+                        <label for="persona-none">
+                            <strong>None</strong> (No reminder persona)
+                        </label>
+                    </div>
+                `;
+                
+                // Add each persona as a radio button option
                 data.all_personas.forEach(persona => {
                     const isChecked = data.deck_personas.includes(persona.id);
                     container.innerHTML += `
                         <div class="persona-option">
-                            <input type="checkbox" id="persona-${persona.id}" name="personas" value="${persona.id}" ${isChecked ? 'checked' : ''}>
+                            <input type="radio" id="persona-${persona.id}" name="persona" value="${persona.id}" ${isChecked ? 'checked' : ''}>
                             <label for="persona-${persona.id}">
                                 <strong>${persona.name}</strong> (${persona.persona_type}, ${persona.tone})
                             </label>
@@ -195,11 +257,11 @@ function closeManagePersonasModal() {
     currentDeckId = null;
 }
 
-// Function to save personas for a deck
-function savePersonasForDeck() {
+// Function to save persona for a deck
+function savePersonaForDeck() {
     const form = document.getElementById('manage-personas-form');
-    const checkboxes = form.querySelectorAll('input[name="personas"]:checked');
-    const personaIds = Array.from(checkboxes).map(cb => cb.value);
+    const selectedRadio = form.querySelector('input[name="persona"]:checked');
+    const personaId = selectedRadio ? selectedRadio.value : '';
     
     // Show some feedback to the user
     const saveBtn = form.querySelector('button[type="submit"]');
@@ -210,8 +272,8 @@ function savePersonasForDeck() {
     // Get the CSRF token
     const csrftoken = getCookie('csrftoken');
     
-    console.log('Saving personas for deck:', currentDeckId);
-    console.log('Selected persona IDs:', personaIds);
+    console.log('Saving persona for deck:', currentDeckId);
+    console.log('Selected persona ID:', personaId);
     
     fetch(`/users/decks/${currentDeckId}/update-personas/`, {
         method: 'POST',
@@ -220,7 +282,7 @@ function savePersonasForDeck() {
             'X-CSRFToken': csrftoken
         },
         body: JSON.stringify({
-            persona_ids: personaIds
+            persona_ids: personaId ? [personaId] : []
         })
     })
     .then(response => {
@@ -234,15 +296,15 @@ function savePersonasForDeck() {
     })
     .then(data => {
         console.log('Success:', data);
-        // Update the UI to show the attached personas
-        updateDeckPersonasUI(currentDeckId, data.personas);
+        // Update the UI to show the attached persona
+        updateDeckPersonaUI(currentDeckId, data.personas);
         
         // Close the modal
         closeManagePersonasModal();
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('There was a problem saving personas for this deck: ' + error.message);
+        alert('There was a problem saving persona for this deck: ' + error.message);
     })
     .finally(() => {
         // Reset button state
@@ -251,8 +313,8 @@ function savePersonasForDeck() {
     });
 }
 
-// Function to update the UI with attached personas
-function updateDeckPersonasUI(deckId, personas) {
+// Function to update the UI with attached persona
+function updateDeckPersonaUI(deckId, personas) {
     const deckCard = document.querySelector(`.deck-card[onclick*="${deckId}"]`);
     if (!deckCard) return;
     
@@ -276,10 +338,10 @@ function updateDeckPersonasUI(deckId, personas) {
         );
     }
     
-    // Update the content
+    // Update the content - now we only show one persona
     personasDiv.innerHTML = `
-        <small>Reminders by: 
-            ${personas.map(p => `<span class="persona-badge">${p.name}</span>`).join(' ')}
+        <small>Reminder by: 
+            <span class="persona-badge">${personas[0].name}</span>
         </small>
     `;
 }
