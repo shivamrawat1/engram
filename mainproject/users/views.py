@@ -796,11 +796,23 @@ def send_review_reminders():
             if getattr(settings, 'EMAIL_DEBUG', False):
                 print(f"[EMAIL DEBUG] Persona {persona.name} attachments: {persona.attachments}")
             
-            # Check if we should include media attachments - case insensitive check
-            include_image = any(att.lower() == 'images' for att in persona.attachments) if isinstance(persona.attachments, list) else 'images' in str(persona.attachments).lower()
-            include_audio = any(att.lower() == 'audio' for att in persona.attachments) if isinstance(persona.attachments, list) else 'audio' in str(persona.attachments).lower()
+            # Check what attachment types are available - case insensitive check
+            available_attachments = []
+            if any(att.lower() == 'images' for att in persona.attachments) if isinstance(persona.attachments, list) else 'images' in str(persona.attachments).lower():
+                available_attachments.append('images')
+            if any(att.lower() == 'audio' for att in persona.attachments) if isinstance(persona.attachments, list) else 'audio' in str(persona.attachments).lower():
+                available_attachments.append('audio')
+            
+            # Randomly select one attachment type if any are available
+            selected_attachment = random.choice(available_attachments) if available_attachments else None
+            
+            # Set flags based on the randomly selected attachment
+            include_image = selected_attachment == 'images'
+            include_audio = selected_attachment == 'audio'
             
             if getattr(settings, 'EMAIL_DEBUG', False):
+                print(f"[EMAIL DEBUG] Available attachments: {available_attachments}")
+                print(f"[EMAIL DEBUG] Randomly selected attachment: {selected_attachment}")
                 print(f"[EMAIL DEBUG] Include image: {include_image}")
                 print(f"[EMAIL DEBUG] Include audio: {include_audio}")
             
