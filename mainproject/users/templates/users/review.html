@@ -1,0 +1,453 @@
+{% extends "users/base.html" %}
+
+{% block authenticated_content %}
+<div class="page-header">
+    <h2>Interleaved Review</h2>
+</div>
+<div class="page-content">
+    {% if no_cards_to_review %}
+    <!-- No cards to review message -->
+    <div id="all-reviewed-modal" class="modal show">
+        <div class="modal-content">
+            <h3>🎉 All Caught Up! 🎉</h3>
+            <p>You've successfully reviewed all cards due for today!</p>
+            <div class="modal-buttons">
+                <a href="{% url 'users:decks' %}" class="btn btn-primary">Back to All Decks</a>
+            </div>
+        </div>
+    </div>
+    {% elif setup_mode %}
+    <!-- Setup mode for selecting decks to review -->
+    <div class="review-setup">
+        <p class="review-intro">Select decks to include in your interleaved review session:</p>
+        
+        <form action="{% url 'users:start_interleaved_review' %}" method="post" class="deck-selection-form">
+            {% csrf_token %}
+            <div class="deck-selection">
+                {% for deck in decks_with_due_cards %}
+                <div class="deck-option">
+                    <input type="checkbox" id="deck-{{ deck.id }}" name="selected_decks" value="{{ deck.id }}" 
+                           {% if deck.due_count > 0 %}checked{% endif %}>
+                    <label for="deck-{{ deck.id }}">
+                        <span class="deck-name">{{ deck.name }}</span>
+                        <span class="due-count">{{ deck.due_count }} cards due</span>
+                    </label>
+                </div>
+                {% empty %}
+                <p>No decks with cards due for review.</p>
+                {% endfor %}
+            </div>
+            
+            <div class="review-options">
+                <h4>Review Options</h4>
+                <div class="option-group">
+                    <label>
+                        <input type="checkbox" id="shuffle_cards" name="shuffle_cards">
+                        Shuffle cards (otherwise prioritize by due date)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Start Review</button>
+            </div>
+        </form>
+    </div>
+    {% elif session_complete %}
+    <!-- Session Complete Modal -->
+    <div id="session-complete-modal" class="modal show">
+        <div class="modal-content">
+            <h3>🎉 Session Complete! 🎉</h3>
+            <p>You've completed this review session.</p>
+            <div class="session-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Cards Reviewed:</span>
+                    <span class="stat-value">{{ total_cards }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Decks Covered:</span>
+                    <span class="stat-value">{{ decks_covered }}</span>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <a href="{% url 'users:review' %}" class="btn btn-primary">New Session</a>
+                <a href="{% url 'users:decks' %}" class="btn">Back to Decks</a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Review interface (similar to review_deck.html) -->
+    <div class="review-header">
+        <div class="review-progress">
+            <span>{{ remaining_cards }} cards remained to be reviewed</span>
+        </div>
+        <div class="review-actions">
+            <a href="{% url 'users:review' %}" class="btn btn-primary">End Session</a>
+        </div>
+    </div>
+    
+    <div class="review-card">
+        <div class="deck-indicator">
+            From deck: <span class="deck-name">{{ card.deck.name }}</span>
+        </div>
+        
+        <div class="question-section">
+            <div class="question-text">{{ card.question }}</div>
+        </div>
+        
+        <div class="review-controls">
+            <button id="show-answer-btn" class="btn btn-primary">Show Answer</button>
+        </div>
+        
+        <div class="answer-section" style="display: none;">
+            <div class="answer-text">{{ card.answer }}</div>
+            
+            <div class="sm-rating-explanation">
+                <p>Rate your recall (0-5):</p>
+                <div class="rating-scale">
+                    <span class="rating-item"><strong>0:</strong> Complete blackout</span>
+                    <span class="rating-item"><strong>1:</strong> Wrong, but recognized</span>
+                    <span class="rating-item"><strong>2:</strong> Almost remembered</span>
+                    <span class="rating-item"><strong>3:</strong> Correct with effort</span>
+                    <span class="rating-item"><strong>4:</strong> Correct with hesitation</span>
+                    <span class="rating-item"><strong>5:</strong> Perfect recall</span>
+                </div>
+            </div>
+            
+            <div class="sm-rating-buttons">
+                <form action="{% url 'users:mark_interleaved_card_reviewed' card.id %}" method="post" class="review-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
+                    <div class="quality-buttons">
+                        <button type="submit" name="quality" value="0" class="btn btn-quality q0">0</button>
+                        <button type="submit" name="quality" value="1" class="btn btn-quality q1">1</button>
+                        <button type="submit" name="quality" value="2" class="btn btn-quality q2">2</button>
+                        <button type="submit" name="quality" value="3" class="btn btn-quality q3">3</button>
+                        <button type="submit" name="quality" value="4" class="btn btn-quality q4">4</button>
+                        <button type="submit" name="quality" value="5" class="btn btn-quality q5">5</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const showAnswerBtn = document.getElementById('show-answer-btn');
+        const answerSection = document.querySelector('.answer-section');
+        
+        // Show answer button functionality
+        if (showAnswerBtn) {
+            showAnswerBtn.addEventListener('click', function() {
+                answerSection.style.display = 'block';
+                showAnswerBtn.style.display = 'none';
+            });
+        }
+        
+        // Keyboard shortcuts for quality ratings
+        document.addEventListener('keydown', function(event) {
+            // Only process keyboard shortcuts if answer is visible
+            if (answerSection && answerSection.style.display === 'block') {
+                // Map number keys 0-5 to quality ratings
+                if (event.key >= '0' && event.key <= '5') {
+                    const qualityButtons = document.querySelectorAll('.btn-quality');
+                    const buttonIndex = parseInt(event.key);
+                    if (qualityButtons[buttonIndex]) {
+                        qualityButtons[buttonIndex].click();
+                    }
+                }
+            } else {
+                // If answer is not visible, spacebar shows the answer
+                if (event.key === ' ' && showAnswerBtn) {
+                    event.preventDefault(); // Prevent page scrolling
+                    showAnswerBtn.click();
+                }
+            }
+        });
+    });
+</script>
+
+<style>
+    /* Review setup styles */
+    .review-setup {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .review-intro {
+        font-size: 1.1em;
+        margin-bottom: 20px;
+    }
+    
+    .deck-selection {
+        margin-bottom: 30px;
+    }
+    
+    .deck-option {
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: white;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+    }
+    
+    .deck-option input[type="checkbox"] {
+        margin-right: 10px;
+    }
+    
+    .deck-name {
+        font-weight: 500;
+        margin-right: 10px;
+    }
+    
+    .due-count {
+        color: #dc3545;
+        font-size: 0.9em;
+        font-weight: 500;
+    }
+    
+    .review-options {
+        margin-bottom: 20px;
+    }
+    
+    .option-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-actions {
+        text-align: center;
+        margin-top: 30px;
+    }
+    
+    /* Deck indicator */
+    .deck-indicator {
+        background-color: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+    
+    .deck-indicator .deck-name {
+        color: #212529;
+        font-weight: 600;
+    }
+    
+    /* Progress bar */
+    .progress-bar {
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        margin-top: 8px;
+        overflow: hidden;
+    }
+    
+    .progress {
+        height: 100%;
+        background-color: #28a745;
+        transition: width 0.3s ease;
+    }
+    
+    /* Review card styles (matching review_deck.html) */
+    .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .review-card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+    
+    .question-section {
+        margin-bottom: 20px;
+    }
+    
+    .question-text {
+        font-size: 1.2em;
+        line-height: 1.5;
+    }
+    
+    .review-controls {
+        text-align: center;
+        margin: 25px 0;
+    }
+    
+    .review-controls .btn {
+        padding: 12px 30px;
+        font-size: 1.1em;
+    }
+    
+    .answer-section {
+        margin-top: 25px;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #333;
+    }
+    
+    .answer-text {
+        margin-bottom: 25px;
+        font-size: 1.1em;
+    }
+    
+    /* Rating buttons styles (same as review_deck.html) */
+    .sm-rating-explanation {
+        background-color: #f0f0f0;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 15px 0;
+        font-size: 0.9em;
+    }
+    
+    .sm-rating-explanation p {
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+    
+    .rating-scale {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .rating-item {
+        flex: 1 1 30%;
+        min-width: 120px;
+        background-color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85em;
+    }
+    
+    .sm-rating-buttons {
+        margin-top: 20px;
+    }
+    
+    .quality-buttons {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    
+    .btn-quality {
+        flex: 1;
+        padding: 15px 0;
+        font-size: 1.2em;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-quality:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Color gradient for quality buttons */
+    .q0 {
+        background-color: #ff6b6b;
+        color: white;
+    }
+    
+    .q1 {
+        background-color: #ff9e7a;
+        color: white;
+    }
+    
+    .q2 {
+        background-color: #ffd166;
+        color: #333;
+    }
+    
+    .q3 {
+        background-color: #c5e99b;
+        color: #333;
+    }
+    
+    .q4 {
+        background-color: #8dd1c3;
+        color: #333;
+    }
+    
+    .q5 {
+        background-color: #4caf50;
+        color: white;
+    }
+    
+    /* Session stats styles */
+    .session-stats {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+    
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+    }
+    
+    .stat-label {
+        font-weight: 500;
+    }
+    
+    .stat-value {
+        font-weight: bold;
+    }
+    
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background-color: white;
+        padding: 25px;
+        border-radius: 8px;
+        max-width: 500px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .modal-buttons {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+    }
+</style>
+{% endblock %} 

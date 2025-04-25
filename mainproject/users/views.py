@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 from django.contrib.auth import logout
@@ -23,6 +23,8 @@ from django.core.mail import EmailMultiAlternatives
 from email.mime.image import MIMEImage
 from email.mime.audio import MIMEAudio
 import os
+import uuid
+from django.db.models import Q
 
 # Create your views here.
 
@@ -1280,3 +1282,194 @@ def analyze_card(request):
     except Exception as e:
         print(f"Error analyzing card: {str(e)}")
         return JsonResponse({'error': f"An error occurred: {str(e)}"}, status=500)
+
+@login_required
+def review(request):
+    """View for interleaved review across multiple decks"""
+    # Check if there's an active review session
+    session_id = request.session.get('interleaved_review_session_id')
+    
+    if session_id and request.session.get('interleaved_review_active'):
+        # Continue existing session
+        return continue_interleaved_review(request, session_id)
+    else:
+        # Start new session setup
+        # Get all decks with due cards
+        now = timezone.now()
+        decks = Deck.objects.filter(user=request.user)
+        
+        decks_with_due_cards = []
+        for deck in decks:
+            due_count = deck.cards.filter(
+                Q(next_review_time__lte=now) | Q(next_review_time__isnull=True)
+            ).count()
+            
+            if due_count > 0:
+                deck.due_count = due_count
+                decks_with_due_cards.append(deck)
+        
+        # Check if there are any cards to review
+        if not decks_with_due_cards:
+            return render(request, 'users/review.html', {
+                'no_cards_to_review': True
+            })
+        
+        return render(request, 'users/review.html', {
+            'setup_mode': True,
+            'decks_with_due_cards': decks_with_due_cards
+        })
+
+@login_required
+def start_interleaved_review(request):
+    """Start an interleaved review session with selected decks"""
+    if request.method != 'POST':
+        return redirect('users:review')
+    
+    # Get selected decks
+    selected_deck_ids = request.POST.getlist('selected_decks')
+    if not selected_deck_ids:
+        messages.error(request, 'Please select at least one deck to review.')
+        return redirect('users:review')
+    
+    # Get review options
+    shuffle_cards = request.POST.get('shuffle_cards') == 'on'
+    
+    # Create a new session ID
+    session_id = str(uuid.uuid4())
+    
+    # Get due cards from selected decks
+    now = timezone.now()
+    due_cards = []
+    
+    for deck_id in selected_deck_ids:
+        deck = get_object_or_404(Deck, id=deck_id, user=request.user)
+        
+        # Get due cards from this deck
+        deck_cards = list(deck.cards.filter(
+            Q(next_review_time__lte=now) | Q(next_review_time__isnull=True)
+        ))
+        
+        due_cards.extend(deck_cards)
+    
+    if not due_cards:
+        messages.info(request, 'No cards due for review in the selected decks.')
+        return redirect('users:review')
+    
+    # Sort or shuffle cards based on user preference
+    if shuffle_cards:
+        # Shuffle for variety
+        random.shuffle(due_cards)
+    else:
+        # Sort by due date (most overdue first)
+        due_cards.sort(key=lambda card: (
+            # Cards with review time in the past come first (most overdue first)
+            card.next_review_time is not None and card.next_review_time < now,
+            # Then cards that have never been reviewed
+            card.next_review_time is None,
+            # Then by actual review time
+            card.next_review_time or timezone.now()
+        ), reverse=True)
+    
+    # Store card IDs in session
+    card_ids = [card.id for card in due_cards]
+    request.session['interleaved_review_cards'] = card_ids
+    request.session['interleaved_review_session_id'] = session_id
+    request.session['interleaved_review_active'] = True
+    request.session['interleaved_review_total'] = len(card_ids)
+    request.session['interleaved_review_decks'] = selected_deck_ids
+    
+    # Redirect to the review page to start the session
+    return redirect('users:review')
+
+@login_required
+def continue_interleaved_review(request, session_id):
+    """Continue an existing interleaved review session"""
+    # Get remaining cards
+    card_ids = request.session.get('interleaved_review_cards', [])
+    
+    if not card_ids:
+        # Session is complete
+        total_cards = request.session.get('interleaved_review_total', 0)
+        deck_ids = request.session.get('interleaved_review_decks', [])
+        
+        # Clear session data
+        request.session['interleaved_review_active'] = False
+        request.session['interleaved_review_cards'] = []
+        
+        # Get unique decks covered
+        decks_covered = len(set(deck_ids))
+        
+        return render(request, 'users/review.html', {
+            'session_complete': True,
+            'total_cards': total_cards,
+            'decks_covered': decks_covered
+        })
+    
+    # Get the next card
+    card_id = card_ids[0]
+    try:
+        card = get_object_or_404(Card, id=card_id, deck__user=request.user)
+        
+        # Calculate progress
+        total_cards = request.session.get('interleaved_review_total', 0)
+        remaining_cards = len(card_ids)
+        reviewed_cards = total_cards - remaining_cards
+        progress_percentage = (reviewed_cards / total_cards) * 100 if total_cards > 0 else 0
+        
+        return render(request, 'users/review.html', {
+            'card': card,
+            'session_id': session_id,
+            'remaining_cards': remaining_cards,
+            'total_cards': total_cards,
+            'progress_percentage': progress_percentage
+        })
+    except:
+        # If there's an issue with the card, remove it and continue
+        if card_id in card_ids:
+            card_ids.remove(card_id)
+            request.session['interleaved_review_cards'] = card_ids
+        
+        # Redirect to try the next card
+        return redirect('users:review')
+
+@login_required
+def mark_interleaved_card_reviewed(request, card_id):
+    """Mark a card as reviewed in an interleaved review session"""
+    if request.method != 'POST':
+        return redirect('users:review')
+    
+    # Get the card
+    card = get_object_or_404(Card, id=card_id, deck__user=request.user)
+    
+    # Get the quality rating
+    quality = int(request.POST.get('quality', 0))
+    
+    # Update the card using the SM-15 algorithm (same as in mark_card_reviewed)
+    now = timezone.now()
+    
+    # Calculate the next interval
+    next_interval = card.calculate_next_interval(quality)
+    
+    # Update card fields
+    card.times_reviewed += 1
+    card.last_reviewed = now
+    card.current_interval = next_interval
+    
+    # Set next review time
+    if next_interval == 0:
+        # If interval is 0, review again today (in 10 minutes)
+        card.next_review_time = now + timezone.timedelta(minutes=10)
+    else:
+        # Otherwise, set to the calculated interval in days
+        card.next_review_time = now + timezone.timedelta(days=next_interval)
+    
+    card.save()
+    
+    # Remove this card from the session's review list
+    card_ids = request.session.get('interleaved_review_cards', [])
+    if card_id in card_ids:
+        card_ids.remove(card_id)
+        request.session['interleaved_review_cards'] = card_ids
+    
+    # Continue to the next card
+    return redirect('users:review')
