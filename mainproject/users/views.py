@@ -181,8 +181,16 @@ def review_deck(request, deck_id):
         all_cards = Card.objects.filter(deck=deck)
         
         if not all_cards.exists():
-            messages.info(request, "This deck has no cards to review.")
-            return redirect('users:deck_detail', deck_id=deck_id)
+            # No cards in the deck at all
+            return render(request, 'users/review_deck.html', {
+                'deck': deck,
+                'no_cards_to_review': True,
+                'reviewed_cards': 0,
+                'remembered_cards': 0,
+                'total_cards': 0,
+                'due_cards': 0,
+                'failed_cards_count': 0
+            })
         
         # Get cards that are due for review (next_review_time is null or in the past)
         current_time = timezone.now()
@@ -191,10 +199,20 @@ def review_deck(request, deck_id):
             models.Q(next_review_time__lte=current_time)
         )
         
+        # Count failed cards (times_reviewed = 0 but have been reviewed before)
+        failed_cards_count = all_cards.filter(times_reviewed=0, last_reviewed__isnull=False).count()
+        
         if not due_cards.exists():
             # All cards have been reviewed - show congratulations message
-            messages.success(request, "🎉 Congratulations! You've successfully reviewed all cards in this deck!")
-            return redirect('users:deck_detail', deck_id=deck_id)
+            return render(request, 'users/review_deck.html', {
+                'deck': deck,
+                'no_cards_to_review': True,
+                'reviewed_cards': all_cards.filter(last_reviewed__isnull=False).count(),
+                'remembered_cards': all_cards.filter(times_reviewed__gt=0).count(),
+                'total_cards': all_cards.count(),
+                'due_cards': 0,
+                'failed_cards_count': failed_cards_count
+            })
         
         # Prioritize cards:
         # 1. Never reviewed (times_reviewed = 0 and last_reviewed is null)
@@ -212,16 +230,18 @@ def review_deck(request, deck_id):
                 card_to_review = due_cards.order_by('next_review_time').first()
         
         # Never show the "all reviewed" modal during the review process
-        # We'll show a success message after the last card is reviewed instead
         all_reviewed = False
         
         return render(request, 'users/review_deck.html', {
             'deck': deck,
             'card': card_to_review,
             'all_reviewed': all_reviewed,
+            'no_cards_to_review': False,
             'total_cards': all_cards.count(),
             'reviewed_cards': all_cards.filter(times_reviewed__gt=0).count(),
-            'due_cards': due_cards.count()
+            'due_cards': due_cards.count(),
+            'remembered_cards': all_cards.filter(times_reviewed__gt=0).count(),
+            'failed_cards_count': failed_cards_count
         })
     except Deck.DoesNotExist:
         messages.error(request, 'Deck not found.')
@@ -902,3 +922,61 @@ def send_review_reminders():
         print(f"[EMAIL DEBUG] Total reminders sent: {reminders_sent}")
     
     return reminders_sent
+
+@login_required
+def review_failed_cards(request, deck_id):
+    try:
+        deck = Deck.objects.get(id=deck_id, user=request.user)
+        
+        # Get cards that were failed (times_reviewed = 0 but have been reviewed before)
+        failed_cards = Card.objects.filter(
+            deck=deck,
+            times_reviewed=0,
+            last_reviewed__isnull=False
+        )
+        
+        if not failed_cards.exists():
+            messages.info(request, "No failed cards to review.")
+            return redirect('users:deck_detail', deck_id=deck_id)
+        
+        # Get the first failed card to review
+        card_to_review = failed_cards.first()
+        
+        # Count all cards in the deck
+        all_cards = Card.objects.filter(deck=deck)
+        
+        return render(request, 'users/review_deck.html', {
+            'deck': deck,
+            'card': card_to_review,
+            'all_reviewed': False,
+            'no_cards_to_review': False,
+            'total_cards': all_cards.count(),
+            'reviewed_cards': all_cards.filter(times_reviewed__gt=0).count(),
+            'due_cards': failed_cards.count(),
+            'remembered_cards': all_cards.filter(times_reviewed__gt=0).count(),
+            'failed_cards_count': failed_cards.count(),
+            'reviewing_failed_cards': True
+        })
+    except Deck.DoesNotExist:
+        messages.error(request, 'Deck not found.')
+        return redirect('users:decks')
+
+@login_required
+def reset_card_streak(request, card_id):
+    try:
+        card = Card.objects.get(id=card_id)
+        # Make sure the user owns the card (via the deck)
+        if card.deck.user != request.user:
+            messages.error(request, 'You do not have permission to reset this card.')
+            return redirect('users:decks')
+            
+        # Reset the card's progress
+        card.times_reviewed = 0
+        card.next_review_time = timezone.now()  # Make it due immediately
+        card.save()
+        
+        messages.success(request, 'Card streak has been reset.')
+        return redirect('users:deck_detail', deck_id=card.deck.id)
+    except Card.DoesNotExist:
+        messages.error(request, 'Card not found.')
+        return redirect('users:decks')

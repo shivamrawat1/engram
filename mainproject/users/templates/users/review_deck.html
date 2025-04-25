@@ -5,8 +5,29 @@
     <h2>Decks - {{ deck.name }} - Review</h2>
 </div>
 <div class="page-content">
-    <div class="review-progress">
-        <span>{{ reviewed_cards }} / {{ total_cards }} cards reviewed ({{ due_cards }} due now)</span>
+    {% if no_cards_to_review %}
+    <!-- No cards to review message -->
+    <div id="all-reviewed-modal" class="modal show">
+        <div class="modal-content">
+            <h3>🎉 Congratulations! 🎉</h3>
+            <p>You've successfully reviewed all cards due for today!</p>
+            <div class="modal-buttons">
+                <a href="{% url 'users:decks' %}" class="btn btn-primary">Back to All Decks</a>
+                <a href="{% url 'users:deck_detail' deck.id %}" class="btn">View Deck</a>
+                {% if failed_cards_count > 0 %}
+                <a href="{% url 'users:review_failed_cards' deck.id %}" class="btn btn-secondary">Review Failed Cards ({{ failed_cards_count }})</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="review-header">
+        <div class="review-progress">
+            <span> {{ due_cards }} cards remained to be reviewed</span>
+        </div>
+        <div class="review-actions">
+            <a href="{% url 'users:decks' %}" class="btn btn-primary">Back to All Decks</a>
+        </div>
     </div>
     
     <div class="review-card">
@@ -14,30 +35,34 @@
             <div class="question-text">{{ card.question }}</div>
         </div>
         
-        <div class="review-message">
-            Think about the question before seeing the answer
-        </div>
-        
         <div class="review-intervals">
-            <span class="interval-label">First</span>
-            <span class="interval-label">1 min</span>
-            <span class="interval-label">2 min</span>
-            <span class="interval-label">3 min</span>
-            <span class="interval-label">4 min</span>
-            <span class="interval-label">1 week</span>
-            <div class="review-progress-dots">
-                {% for i in "12345" %}
-                    {% if forloop.counter <= card.times_reviewed %}
-                        <span class="circle filled"></span>
-                    {% else %}
-                        <span class="circle"></span>
-                    {% endif %}
-                {% endfor %}
+            <div class="intervals-header">Review Progress:</div>
+            <div class="intervals-container">
+                <div class="interval-item">
+                    <span class="interval-label">Start</span>
+                    <span class="circle {% if card.times_reviewed >= 1 %}filled{% endif %}"></span>
+                </div>
+                <div class="interval-item">
+                    <span class="interval-label">1 min</span>
+                    <span class="circle {% if card.times_reviewed >= 2 %}filled{% endif %}"></span>
+                </div>
+                <div class="interval-item">
+                    <span class="interval-label">2 min</span>
+                    <span class="circle {% if card.times_reviewed >= 3 %}filled{% endif %}"></span>
+                </div>
+                <div class="interval-item">
+                    <span class="interval-label">3 min</span>
+                    <span class="circle {% if card.times_reviewed >= 4 %}filled{% endif %}"></span>
+                </div>
+                <div class="interval-item">
+                    <span class="interval-label">4 min</span>
+                    <span class="circle {% if card.times_reviewed >= 5 %}filled{% endif %}"></span>
+                </div>
             </div>
         </div>
         
         <div class="review-controls">
-            <button id="show-think-btn" class="btn">Show / Think</button>
+            <button id="show-answer-btn" class="btn btn-primary">Show Answer</button>
         </div>
         
         <div class="answer-section" style="display: none;">
@@ -53,47 +78,42 @@
                 <form action="{% url 'users:mark_card_reviewed' card.id %}" method="post" class="review-form">
                     {% csrf_token %}
                     <input type="hidden" name="remembered" value="true">
-                    <button type="submit" class="btn">Remembered</button>
+                    <button type="submit" class="btn btn-primary">Remembered</button>
                 </form>
             </div>
         </div>
     </div>
-</div>
-
-<!-- All Cards Reviewed Modal -->
-<div id="all-reviewed-modal" class="modal {% if all_reviewed %}show{% endif %}">
-    <div class="modal-content">
-        <h3>🎉 Congratulations! 🎉</h3>
-        <p>You've successfully reviewed all cards in this deck!</p>
-        <div class="modal-buttons">
-            <a href="{% url 'users:decks' %}" class="btn">Back to All Decks</a>
-            <a href="{% url 'users:deck_detail' deck.id %}" class="btn">View Deck</a>
-            <button id="continue-review-btn" class="btn">Continue Reviewing</button>
+    
+    <!-- All Cards Reviewed Modal -->
+    <div id="all-reviewed-modal" class="modal {% if all_reviewed %}show{% endif %}">
+        <div class="modal-content">
+            <h3>🎉 Congratulations! 🎉</h3>
+            <p>You've successfully reviewed all cards due for today!</p>
+            <div class="modal-buttons">
+                <a href="{% url 'users:decks' %}" class="btn btn-primary">Back to All Decks</a>
+                <a href="{% url 'users:deck_detail' deck.id %}" class="btn">View Deck</a>
+                {% if failed_cards_count > 0 %}
+                <a href="{% url 'users:review_failed_cards' deck.id %}" class="btn btn-secondary">Review Failed Cards ({{ failed_cards_count }})</a>
+                {% endif %}
+            </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const showThinkBtn = document.getElementById('show-think-btn');
+        const showAnswerBtn = document.getElementById('show-answer-btn');
         const answerSection = document.querySelector('.answer-section');
         const allReviewedModal = document.getElementById('all-reviewed-modal');
-        const continueReviewBtn = document.getElementById('continue-review-btn');
         
-        // Show/Think button functionality
-        if (showThinkBtn) {
-            showThinkBtn.addEventListener('click', function() {
+        // Show answer button functionality
+        if (showAnswerBtn) {
+            showAnswerBtn.addEventListener('click', function() {
                 answerSection.style.display = 'block';
-                showThinkBtn.style.display = 'none';
-            });
-        }
-        
-        // Continue reviewing button
-        if (continueReviewBtn) {
-            continueReviewBtn.addEventListener('click', function() {
-                allReviewedModal.classList.remove('show');
+                showAnswerBtn.style.display = 'none';
             });
         }
         
@@ -101,8 +121,180 @@
         window.addEventListener('click', function(event) {
             if (event.target === allReviewedModal) {
                 allReviewedModal.classList.remove('show');
+                window.location.href = "{% url 'users:decks' %}";
             }
         });
     });
 </script>
+
+<style>
+    /* Review page enhanced styles */
+    .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .review-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 20px;
+        background-color: white;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .question-section {
+        margin-bottom: 25px;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .question-text {
+        font-size: 1.3em;
+        font-weight: 500;
+    }
+    
+    .review-intervals {
+        margin: 25px 0;
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+    }
+    
+    .intervals-header {
+        font-weight: 500;
+        margin-bottom: 10px;
+    }
+    
+    .intervals-container {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+    }
+    
+    .interval-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .interval-label {
+        font-size: 0.8em;
+        color: #666;
+    }
+    
+    .review-controls {
+        text-align: center;
+        margin: 25px 0;
+    }
+    
+    .review-controls .btn {
+        padding: 12px 30px;
+        font-size: 1.1em;
+    }
+    
+    .answer-section {
+        margin-top: 25px;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #333;
+    }
+    
+    .answer-text {
+        margin-bottom: 25px;
+        font-size: 1.1em;
+    }
+    
+    .review-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 25px;
+        gap: 15px;
+    }
+    
+    .review-form {
+        flex: 1;
+    }
+    
+    .review-form button {
+        width: 100%;
+        padding: 12px;
+    }
+    
+    .btn-primary {
+        background-color: #333;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #555;
+    }
+    
+    .btn-secondary {
+        background-color: #e9ecef;
+        color: #333;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #dee2e6;
+    }
+    
+    .stats-summary {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin: 20px 0;
+    }
+    
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .stat-value {
+        font-size: 2em;
+        font-weight: bold;
+    }
+    
+    .stat-label {
+        font-size: 0.9em;
+        color: #666;
+    }
+    
+    /* Enhance the modal */
+    .modal-content {
+        max-width: 500px;
+        border-radius: 8px;
+    }
+    
+    /* Make the modal more prominent */
+    .modal.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Add a subtle animation to the modal */
+    .modal.show .modal-content {
+        animation: modalFadeIn 0.3s ease-out;
+    }
+    
+    @keyframes modalFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
 {% endblock %} 

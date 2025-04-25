@@ -6,7 +6,10 @@
 </div>
 <div class="page-content">
     <div class="deck-detail-header">
-        <button id="create-card-btn" class="btn">Create</button>
+        <div class="deck-actions">
+            <a href="{% url 'users:decks' %}" class="btn btn-secondary">Back to All Decks</a>
+            <button id="create-card-btn" class="btn">Create</button>
+        </div>
     </div>
     
     <div class="cards-table-container">
@@ -43,6 +46,7 @@
                             <div class="options-menu card-options-menu" id="card-options-menu-{{ card.id }}">
                                 <div class="option-item edit-card" data-card-id="{{ card.id }}" data-question="{{ card.question }}" data-answer="{{ card.answer }}">Edit</div>
                                 <div class="option-item delete-card" data-card-id="{{ card.id }}">Delete</div>
+                                <div class="option-item reset-card" data-card-id="{{ card.id }}">Reset Streak</div>
                             </div>
                         </div>
                     </td>
@@ -113,4 +117,35 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Existing code...
+        
+        // Reset card streak functionality
+        document.querySelectorAll('.reset-card').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const cardId = this.getAttribute('data-card-id');
+                if (confirm('Are you sure you want to reset this card\'s progress? This will set the streak back to zero.')) {
+                    window.location.href = `/users/card/${cardId}/reset-streak/`;
+                }
+            });
+        });
+    });
+</script>
+
+<style>
+    .deck-detail-header {
+        margin-bottom: 20px;
+    }
+    
+    .deck-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+</style>
 {% endblock %} 
