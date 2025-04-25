@@ -22,6 +22,7 @@ from django.core.files.base import ContentFile
 from django.core.mail import EmailMultiAlternatives
 from email.mime.image import MIMEImage
 from email.mime.audio import MIMEAudio
+import os
 
 # Create your views here.
 
@@ -97,7 +98,9 @@ def delete_deck(request, deck_id):
 
 @login_required
 def tutor(request):
-    return render(request, 'users/tutor.html')
+    # Get all decks for the user to populate the dropdown
+    decks = Deck.objects.filter(user=request.user)
+    return render(request, 'users/tutor.html', {'decks': decks})
 
 @login_required
 def personas(request):
@@ -992,3 +995,124 @@ def reset_card_streak(request, card_id):
     except Card.DoesNotExist:
         messages.error(request, 'Card not found.')
         return redirect('users:decks')
+
+@login_required
+@require_POST
+def tutor_chat(request):
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '')
+        context = data.get('context', {})
+        is_initial = data.get('initial', False)
+        
+        # Get API key from environment variable
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            return JsonResponse({'response': 'API key not configured. Please contact the administrator.'})
+        
+        # Configure OpenAI client
+        client = openai.OpenAI(api_key=api_key)
+        
+        # Prepare system message based on context
+        system_message = "You are a helpful tutor who assists students with their questions. Provide clear, concise, and educational responses."
+        
+        # If this is deck-based learning, fetch the deck content
+        if context and context.get('type') == 'deck' and is_initial:
+            deck_id = context.get('deckId')
+            question_ids = context.get('questionIds', [])
+            
+            try:
+                deck = Deck.objects.get(id=deck_id, user=request.user)
+                
+                # Get cards based on selected questions or all cards if none selected
+                if question_ids:
+                    cards = Card.objects.filter(deck=deck, id__in=question_ids)
+                else:
+                    cards = Card.objects.filter(deck=deck)
+                
+                # Format cards for the AI
+                cards_content = []
+                for card in cards:
+                    cards_content.append({
+                        'question': card.question,
+                        'answer': card.answer
+                    })
+                
+                # Create a specialized system message with the deck content
+                system_message = f"""
+                You are a helpful tutor who assists students with learning content from their flashcards.
+                
+                The student wants to learn about the deck: "{context.get('deckName')}"
+                
+                Here are the flashcards from this deck:
+                
+                {json.dumps(cards_content, indent=2)}
+                
+                Their learning goal is: {context.get('goal')}
+                
+                First, provide a brief overview of the topics covered in these flashcards.
+                Then, suggest a structured approach to learning this material.
+                Be engaging, educational, and thorough in your explanations.
+                """
+                
+            except Deck.DoesNotExist:
+                return JsonResponse({'response': 'Deck not found. Please select a valid deck.'})
+                
+        # If this is new topic learning and initial request
+        elif context and context.get('type') == 'new_topic' and is_initial:
+            topic = context.get('topic')
+            aspect = context.get('aspect', '')
+            
+            system_message = f"""
+            You are a helpful tutor who creates personalized learning plans.
+            
+            The student wants to learn about: {topic}
+            {f'With a focus on: {aspect}' if aspect else ''}
+            
+            Create a structured learning plan with the following:
+            1. A brief introduction to the topic
+            2. 4-6 key subtopics or concepts they should learn, organized in a logical sequence
+            3. For each subtopic, provide a very brief description (1-2 sentences)
+            4. End with a question asking if they want to start with the first subtopic or if they'd prefer a different approach
+            
+            Be engaging, encouraging, and adapt to their level of interest.
+            """
+        
+        # For ongoing conversations, include the context in the user message
+        elif context:
+            if context.get('type') == 'deck':
+                user_message = f"[Context: Learning about deck '{context.get('deckName')}' with goal: {context.get('goal')}] {user_message}"
+            elif context.get('type') == 'new_topic':
+                user_message = f"[Context: Learning about {context.get('topic')}{' focusing on ' + context.get('aspect') if context.get('aspect') else ''}] {user_message}"
+        
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",  # You can change this to a different model if needed
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message}
+            ],
+            max_tokens=1000
+        )
+        
+        # Extract the response text
+        ai_response = response.choices[0].message.content
+        
+        return JsonResponse({'response': ai_response})
+    
+    except Exception as e:
+        print(f"Error in tutor_chat: {str(e)}")
+        return JsonResponse({'response': f"Sorry, an error occurred: {str(e)}"}, status=500)
+
+@login_required
+def deck_questions(request, deck_id):
+    """API endpoint to get questions from a deck"""
+    try:
+        deck = Deck.objects.get(id=deck_id, user=request.user)
+        cards = Card.objects.filter(deck=deck)
+        
+        questions = [{'id': card.id, 'question': card.question} for card in cards]
+        
+        return JsonResponse({'questions': questions})
+    except Deck.DoesNotExist:
+        return JsonResponse({'error': 'Deck not found'}, status=404)

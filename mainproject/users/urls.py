@@ -12,6 +12,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('decks/', views.decks, name='decks'),
     path('tutor/', views.tutor, name='tutor'),
+    path('tutor/chat/', views.tutor_chat, name='tutor_chat'),
     path('personas/', views.personas_view, name='personas'),
     path('getting-started/', views.getting_started, name='getting_started'),
     path('create-deck/', views.create_deck, name='create_deck'),
@@ -31,4 +32,5 @@ urlpatterns = [
     path('decks/<int:deck_id>/update-personas/', views.update_deck_personas, name='update_deck_personas'),
     path('deck/<int:deck_id>/review-failed/', views.review_failed_cards, name='review_failed_cards'),
     path('card/<int:card_id>/reset-streak/', views.reset_card_streak, name='reset_card_streak'),
+    path('deck/<int:deck_id>/questions/', views.deck_questions, name='deck_questions'),
 ]
