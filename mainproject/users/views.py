@@ -58,7 +58,56 @@ def logout_view(request):
 
 @login_required
 def dashboard(request):
-    return render(request, 'users/dashboard.html')
+    # Get user's decks
+    user_decks = Deck.objects.filter(user=request.user)
+    decks_count = user_decks.count()
+    
+    # Get all cards
+    all_cards = Card.objects.filter(deck__user=request.user)
+    cards_count = all_cards.count()
+    
+    # Get due cards
+    current_time = timezone.now()
+    due_cards = all_cards.filter(
+        models.Q(next_review_time__isnull=True) | 
+        models.Q(next_review_time__lte=current_time)
+    )
+    due_cards_count = due_cards.count()
+    
+    # Get mastered cards (cards with high consecutive correct answers)
+    mastered_cards_count = all_cards.filter(consecutive_correct__gte=5).count()
+    
+    # Get recently reviewed cards
+    recent_cards = all_cards.filter(
+        last_reviewed__isnull=False
+    ).order_by('-last_reviewed')[:5]
+    
+    # Get decks with cards due today
+    due_today_decks = []
+    for deck in user_decks:
+        due_count = Card.objects.filter(
+            models.Q(next_review_time__isnull=True) | 
+            models.Q(next_review_time__lte=current_time),
+            deck=deck
+        ).count()
+        
+        if due_count > 0:
+            due_today_decks.append({
+                'id': deck.id,
+                'name': deck.name,
+                'due_count': due_count
+            })
+    
+    context = {
+        'decks_count': decks_count,
+        'cards_count': cards_count,
+        'due_cards_count': due_cards_count,
+        'mastered_cards_count': mastered_cards_count,
+        'recent_cards': recent_cards,
+        'due_today_decks': due_today_decks
+    }
+    
+    return render(request, 'users/dashboard.html', context)
 
 @login_required
 def decks(request):
@@ -1461,8 +1510,9 @@ def review(request):
         
         decks_with_due_cards = []
         for deck in decks:
-            due_count = deck.cards.filter(
-                Q(next_review_time__lte=now) | Q(next_review_time__isnull=True)
+            due_count = Card.objects.filter(
+                models.Q(next_review_time__lte=now) | models.Q(next_review_time__isnull=True),
+                deck=deck
             ).count()
             
             if due_count > 0:

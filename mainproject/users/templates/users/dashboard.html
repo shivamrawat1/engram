@@ -5,6 +5,182 @@
     <h2>Dashboard</h2>
 </div>
 <div class="page-content">
-    <p>This is Dashboard</p>
+    <div class="dashboard-stats">
+        <div class="stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-value">{{ decks_count }}</div>
+            <div class="stat-label">Decks</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🗂️</div>
+            <div class="stat-value">{{ cards_count }}</div>
+            <div class="stat-label">Total Cards</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⏰</div>
+            <div class="stat-value">{{ due_cards_count }}</div>
+            <div class="stat-label">Cards Due</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value">{{ mastered_cards_count }}</div>
+            <div class="stat-label">Mastered Cards</div>
+        </div>
+    </div>
+
+    <div class="dashboard-sections">
+        <div class="dashboard-section">
+            <h3>Recent Activity</h3>
+            {% if recent_cards %}
+                <div class="activity-list">
+                    {% for card in recent_cards %}
+                    <div class="activity-item">
+                        <div class="activity-icon">📝</div>
+                        <div class="activity-details">
+                            <div class="activity-title">Reviewed card in {{ card.deck.name }}</div>
+                            <div class="activity-time">{{ card.last_reviewed|timesince }} ago</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="empty-state">No recent activity. Start reviewing cards to see your progress!</p>
+            {% endif %}
+        </div>
+
+        <div class="dashboard-section">
+            <h3>Due Today</h3>
+            {% if due_today_decks %}
+                <div class="due-decks-list">
+                    {% for deck in due_today_decks %}
+                    <div class="due-deck-item">
+                        <div class="due-deck-info">
+                            <div class="due-deck-name">{{ deck.name }}</div>
+                            <div class="due-deck-count">{{ deck.due_count }} cards due</div>
+                        </div>
+                        <a href="{% url 'users:review_deck' deck.id %}" class="btn btn-sm">Review</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="empty-state">No cards due today. Great job staying on top of your reviews!</p>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+<style>
+    .dashboard-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background-color: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #666;
+    }
+    
+    .dashboard-sections {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 30px;
+    }
+    
+    .dashboard-section {
+        background-color: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .dashboard-section h3 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .activity-list, .due-decks-list {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .activity-item, .due-deck-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+    }
+    
+    .activity-icon {
+        font-size: 1.5rem;
+        margin-right: 15px;
+    }
+    
+    .activity-details {
+        flex: 1;
+    }
+    
+    .activity-title {
+        font-weight: 500;
+    }
+    
+    .activity-time {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .due-deck-item {
+        justify-content: space-between;
+    }
+    
+    .due-deck-name {
+        font-weight: 500;
+    }
+    
+    .due-deck-count {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .btn-sm {
+        padding: 5px 10px;
+        font-size: 0.9rem;
+    }
+    
+    .empty-state {
+        color: #666;
+        font-style: italic;
+        text-align: center;
+        padding: 20px 0;
+    }
+</style>
 {% endblock %} 

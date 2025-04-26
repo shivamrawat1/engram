@@ -416,13 +416,17 @@
     // Modal functions moved to global scope
     function openModal() {
         const modal = document.getElementById('personaModal');
+        const backdrop = document.getElementById('modal-backdrop');
         modal.style.display = 'block';
+        backdrop.style.display = 'block';
         document.body.classList.add('modal-open');
     }
     
     function closeModal() {
         const modal = document.getElementById('personaModal');
+        const backdrop = document.getElementById('modal-backdrop');
         modal.style.display = 'none';
+        backdrop.style.display = 'none';
         document.body.classList.remove('modal-open');
         
         // Reset form and save button
@@ -567,6 +571,11 @@
         // Get modal elements
         const createBtn = document.getElementById('create-persona-btn');
         const cancelBtn = document.getElementById('cancel-persona');
+        const personaModal = document.getElementById('personaModal');
+        
+        // Make sure the modal is hidden initially
+        personaModal.style.display = 'none';
+        document.getElementById('modal-backdrop').style.display = 'none';
         
         // Open modal when create button is clicked
         createBtn.addEventListener('click', function(e) {

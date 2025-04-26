@@ -2,6 +2,219 @@
 
 {% block content %}
 <div class="landing-content">
-    <h1>This is landing page</h1>
+    <div class="hero-section">
+        <h1>Welcome to Engram</h1>
+        <p class="tagline">The intelligent flashcard system that adapts to your learning style</p>
+        <div class="cta-buttons">
+            <a href="{% url 'users:login' %}" class="btn btn-primary">Log In</a>
+            <a href="{% url 'users:register' %}" class="btn btn-secondary">Sign Up</a>
+        </div>
+    </div>
+
+    <div class="features-section">
+        <h2>Why Choose Engram?</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <h3>Smart Spaced Repetition</h3>
+                <p>Our algorithm adapts to your learning pace, showing cards exactly when you need to review them.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>AI-Powered Tutor</h3>
+                <p>Get personalized help with difficult concepts through our intelligent tutoring system.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👤</div>
+                <h3>Persona Reminders</h3>
+                <p>Create unique personas that send you customized reminders to keep your studies on track.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Progress Tracking</h3>
+                <p>Monitor your learning journey with detailed statistics and insights.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="testimonial-section">
+        <h2>What Our Users Say</h2>
+        <div class="testimonial">
+            <p>"Engram has completely transformed how I study. The spaced repetition system helps me remember information for the long term."</p>
+            <div class="testimonial-author">- Alex, Medical Student</div>
+        </div>
+    </div>
+
+    <div class="get-started-section">
+        <h2>Ready to Enhance Your Learning?</h2>
+        <p>Join thousands of students who have improved their study efficiency with Engram.</p>
+        <a href="{% url 'users:register' %}" class="btn btn-large">Get Started Now</a>
+    </div>
 </div>
+
+<style>
+    .landing-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .hero-section {
+        text-align: center;
+        padding: 60px 20px;
+        margin-bottom: 40px;
+    }
+    
+    .hero-section h1 {
+        font-size: 3.5em;
+        margin-bottom: 20px;
+        color: #2c3e50;
+    }
+    
+    .tagline {
+        font-size: 1.5em;
+        color: #7f8c8d;
+        margin-bottom: 40px;
+    }
+    
+    .cta-buttons {
+        margin-top: 30px;
+    }
+    
+    .btn {
+        display: inline-block;
+        padding: 12px 30px;
+        margin: 0 10px;
+        font-size: 1.1em;
+        border-radius: 5px;
+        text-decoration: none;
+        transition: background-color 0.3s;
+    }
+    
+    .btn-primary {
+        background-color: #3498db;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2980b9;
+    }
+    
+    .btn-secondary {
+        background-color: #ecf0f1;
+        color: #2c3e50;
+        border: 1px solid #bdc3c7;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #bdc3c7;
+    }
+    
+    .btn-large {
+        padding: 15px 40px;
+        font-size: 1.2em;
+        background-color: #3498db;
+        color: white;
+    }
+    
+    .btn-large:hover {
+        background-color: #2980b9;
+    }
+    
+    .features-section, .testimonial-section, .get-started-section {
+        padding: 60px 20px;
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    
+    .features-section h2, .testimonial-section h2, .get-started-section h2 {
+        font-size: 2.5em;
+        margin-bottom: 40px;
+        color: #2c3e50;
+    }
+    
+    .features-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 30px;
+    }
+    
+    .feature-card {
+        flex: 1;
+        min-width: 250px;
+        max-width: 300px;
+        padding: 30px;
+        border-radius: 10px;
+        background-color: #f9f9f9;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        transition: transform 0.3s;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-10px);
+    }
+    
+    .feature-icon {
+        font-size: 3em;
+        margin-bottom: 20px;
+    }
+    
+    .feature-card h3 {
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+    
+    .testimonial {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 30px;
+        background-color: #f9f9f9;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    
+    .testimonial p {
+        font-size: 1.2em;
+        font-style: italic;
+        margin-bottom: 20px;
+    }
+    
+    .testimonial-author {
+        font-weight: bold;
+        color: #7f8c8d;
+    }
+    
+    .get-started-section {
+        background-color: #f9f9f9;
+        border-radius: 10px;
+        padding: 60px 20px;
+    }
+    
+    .get-started-section p {
+        font-size: 1.2em;
+        max-width: 700px;
+        margin: 0 auto 30px auto;
+        color: #7f8c8d;
+    }
+    
+    @media (max-width: 768px) {
+        .hero-section h1 {
+            font-size: 2.5em;
+        }
+        
+        .tagline {
+            font-size: 1.2em;
+        }
+        
+        .features-grid {
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .feature-card {
+            max-width: 100%;
+        }
+    }
+</style>
 {% endblock %} 
