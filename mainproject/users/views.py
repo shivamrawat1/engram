@@ -26,6 +26,7 @@ import os
 import uuid
 from django.db.models import Q
 import re
+import time
 
 # Create your views here.
 
@@ -1139,6 +1140,7 @@ def tutor_chat(request):
         user_message = data.get('message', '')
         context = data.get('context', {})
         is_initial = data.get('initial', False)
+        thread_id = data.get('thread_id')
         
         # Get API key from environment variable
         api_key = os.environ.get('OPENAI_API_KEY')
@@ -1148,93 +1150,154 @@ def tutor_chat(request):
         # Configure OpenAI client
         client = openai.OpenAI(api_key=api_key)
         
-        # Prepare system message based on context
-        system_message = "You are a helpful tutor who assists students with their questions. Provide clear, concise, and educational responses."
-        
-        # If this is deck-based learning, fetch the deck content
-        if context and context.get('type') == 'deck' and is_initial:
-            deck_id = context.get('deckId')
-            question_ids = context.get('questionIds', [])
+        # If this is an initial request, create a new thread and assistant
+        if is_initial:
+            # Create a new thread
+            thread = client.beta.threads.create()
+            thread_id = thread.id
             
-            try:
-                deck = Deck.objects.get(id=deck_id, user=request.user)
+            # If this is deck-based practice test, fetch the deck content
+            if context and context.get('type') == 'practice_test':
+                deck_id = context.get('deckId')
+                question_ids = context.get('questionIds', [])
                 
-                # Get cards based on selected questions or all cards if none selected
-                if question_ids:
-                    cards = Card.objects.filter(deck=deck, id__in=question_ids)
-                else:
-                    cards = Card.objects.filter(deck=deck)
-                
-                # Format cards for the AI
-                cards_content = []
-                for card in cards:
-                    cards_content.append({
-                        'question': card.question,
-                        'answer': card.answer
+                try:
+                    deck = Deck.objects.get(id=deck_id, user=request.user)
+                    
+                    # Get cards based on selected questions or all cards if none selected
+                    if question_ids:
+                        cards = Card.objects.filter(deck=deck, id__in=question_ids)
+                    else:
+                        cards = Card.objects.filter(deck=deck)
+                    
+                    # Format cards for the AI
+                    cards_content = []
+                    for card in cards:
+                        cards_content.append({
+                            'question': card.question,
+                            'answer': card.answer
+                        })
+                    
+                    # Create a specialized system message with the deck content
+                    assistant_instructions = f"""
+                    You are a practice test tutor who helps students test their knowledge on flashcards.
+                    
+                    The student wants to practice test on the deck: "{context.get('deckName')}"
+                    
+                    Here are the flashcards from this deck:
+                    
+                    {json.dumps(cards_content, indent=2)}
+                    
+                    Your role is to:
+                    1. Ask the student questions from the deck one at a time
+                    2. Wait for their answer before revealing the correct answer
+                    3. Provide feedback on their answer (whether it's correct, partially correct, or incorrect)
+                    4. Explain the correct answer only AFTER they've attempted to answer
+                    5. Move on to the next question when they're ready
+                    
+                    Important guidelines:
+                    - NEVER reveal the answer in your first message for each question
+                    - Ask the student to elaborate if they give a very short answer
+                    - Be encouraging but honest in your feedback
+                    - If a student is struggling, provide hints before revealing the answer
+                    - Keep track of which questions you've already asked to avoid repetition
+                    - When a student wants to move to the next question, select one they haven't seen yet
+                    
+                    Start by asking the first question from the deck. DO NOT reveal the answer in your first message.
+                    Ask only one question at a time and wait for their response before giving feedback.
+                    """
+                    
+                    # Create an assistant for this session
+                    assistant = client.beta.assistants.create(
+                        name="Practice Test Tutor",
+                        instructions=assistant_instructions,
+                        model="gpt-3.5-turbo",
+                    )
+                    
+                    # Add the initial message to the thread
+                    client.beta.threads.messages.create(
+                        thread_id=thread_id,
+                        role="user",
+                        content="Let's start the practice test. Please ask me the first question."
+                    )
+                    
+                    # Run the assistant
+                    run = client.beta.threads.runs.create(
+                        thread_id=thread_id,
+                        assistant_id=assistant.id,
+                    )
+                    
+                    # Wait for the run to complete
+                    while run.status != "completed":
+                        run = client.beta.threads.runs.retrieve(
+                            thread_id=thread_id,
+                            run_id=run.id
+                        )
+                        if run.status == "failed":
+                            return JsonResponse({'response': 'Sorry, there was an error processing your request.'})
+                        time.sleep(0.5)
+                    
+                    # Get the assistant's response
+                    messages = client.beta.threads.messages.list(
+                        thread_id=thread_id
+                    )
+                    
+                    # Return the assistant's response along with the thread_id and assistant_id
+                    return JsonResponse({
+                        'response': messages.data[0].content[0].text.value,
+                        'thread_id': thread_id,
+                        'assistant_id': assistant.id
                     })
-                
-                # Create a specialized system message with the deck content
-                system_message = f"""
-                You are a helpful tutor who assists students with learning content from their flashcards.
-                
-                The student wants to learn about the deck: "{context.get('deckName')}"
-                
-                Here are the flashcards from this deck:
-                
-                {json.dumps(cards_content, indent=2)}
-                
-                Their learning goal is: {context.get('goal')}
-                
-                First, provide a brief overview of the topics covered in these flashcards.
-                Then, suggest a structured approach to learning this material.
-                Be engaging, educational, and thorough in your explanations.
-                """
-                
-            except Deck.DoesNotExist:
-                return JsonResponse({'response': 'Deck not found. Please select a valid deck.'})
-                
-        # If this is new topic learning and initial request
-        elif context and context.get('type') == 'new_topic' and is_initial:
-            topic = context.get('topic')
-            aspect = context.get('aspect', '')
-            
-            system_message = f"""
-            You are a helpful tutor who creates personalized learning plans.
-            
-            The student wants to learn about: {topic}
-            {f'With a focus on: {aspect}' if aspect else ''}
-            
-            Create a structured learning plan with the following:
-            1. A brief introduction to the topic
-            2. 4-6 key subtopics or concepts they should learn, organized in a logical sequence
-            3. For each subtopic, provide a very brief description (1-2 sentences)
-            4. End with a question asking if they want to start with the first subtopic or if they'd prefer a different approach
-            
-            Be engaging, encouraging, and adapt to their level of interest.
-            """
+                    
+                except Deck.DoesNotExist:
+                    return JsonResponse({'response': 'Deck not found. Please select a valid deck.'})
         
-        # For ongoing conversations, include the context in the user message
-        elif context:
-            if context.get('type') == 'deck':
-                user_message = f"[Context: Learning about deck '{context.get('deckName')}' with goal: {context.get('goal')}] {user_message}"
-            elif context.get('type') == 'new_topic':
-                user_message = f"[Context: Learning about {context.get('topic')}{' focusing on ' + context.get('aspect') if context.get('aspect') else ''}] {user_message}"
+        # For ongoing conversations, use the existing thread
+        else:
+            if not thread_id:
+                return JsonResponse({'response': 'Thread ID is missing. Please start a new session.'})
+            
+            # Add the user message to the thread
+            client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=user_message
+            )
+            
+            # Get the assistant ID from the first run in the thread
+            runs = client.beta.threads.runs.list(thread_id=thread_id)
+            if runs.data:
+                assistant_id = runs.data[0].assistant_id
+            else:
+                return JsonResponse({'response': 'Assistant ID not found. Please start a new session.'})
+            
+            # Run the assistant
+            run = client.beta.threads.runs.create(
+                thread_id=thread_id,
+                assistant_id=assistant_id,
+            )
+            
+            # Wait for the run to complete
+            while run.status != "completed":
+                run = client.beta.threads.runs.retrieve(
+                    thread_id=thread_id,
+                    run_id=run.id
+                )
+                if run.status == "failed":
+                    return JsonResponse({'response': 'Sorry, there was an error processing your request.'})
+                time.sleep(0.5)
+            
+            # Get the assistant's response
+            messages = client.beta.threads.messages.list(
+                thread_id=thread_id
+            )
+            
+            # Return the assistant's response
+            return JsonResponse({
+                'response': messages.data[0].content[0].text.value,
+                'thread_id': thread_id
+            })
         
-        # Call OpenAI API
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # You can change this to a different model if needed
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message}
-            ],
-            max_tokens=1000
-        )
-        
-        # Extract the response text
-        ai_response = response.choices[0].message.content
-        
-        return JsonResponse({'response': ai_response})
-    
     except Exception as e:
         print(f"Error in tutor_chat: {str(e)}")
         return JsonResponse({'response': f"Sorry, an error occurred: {str(e)}"}, status=500)

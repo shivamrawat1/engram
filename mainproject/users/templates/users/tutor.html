@@ -7,22 +7,9 @@
 <div class="page-content">
     <!-- Setup Section -->
     <div id="tutor-setup" class="tutor-setup">
-        <div class="setup-options">
-            <div class="setup-option" id="deck-option">
-                <h3>Learn from Your Decks</h3>
-                <p>Use your existing flashcard decks as a basis for learning</p>
-                <button class="option-btn" onclick="showDeckSetup()">Select</button>
-            </div>
-            <div class="setup-option" id="new-topic-option">
-                <h3>Learn a New Topic</h3>
-                <p>Explore and learn about any new subject with AI guidance</p>
-                <button class="option-btn" onclick="showNewTopicSetup()">Select</button>
-            </div>
-        </div>
-        
         <!-- Deck-based Learning Setup -->
-        <div id="deck-setup" class="setup-detail" style="display: none;">
-            <h3>Learn from Your Decks</h3>
+        <div id="deck-setup" class="setup-detail">
+            <h3>Select a Deck to Practice</h3>
             <div class="form-group">
                 <label for="deck-select">Select a Deck:</label>
                 <select id="deck-select" onchange="loadDeckQuestions()">
@@ -35,37 +22,14 @@
             
             <div id="questions-container" style="display: none;">
                 <div class="form-group">
-                    <label>Select Questions to Focus On:</label>
+                    <label>Select Questions to Test:</label>
                     <div class="checkbox-group" id="questions-list">
                         <!-- Questions will be loaded here dynamically -->
                     </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="learning-goal">What would you like to learn about these cards?</label>
-                    <textarea id="learning-goal" placeholder="e.g., 'Help me understand these concepts in depth' or 'Quiz me on these topics'"></textarea>
-                </div>
-                
-                <button class="start-btn" onclick="startDeckLearning()">Start Learning</button>
-                <button class="back-btn" onclick="backToOptions()">Back</button>
+                <button class="start-btn" onclick="startDeckLearning()">Start Practice Test</button>
             </div>
-        </div>
-        
-        <!-- New Topic Learning Setup -->
-        <div id="new-topic-setup" class="setup-detail" style="display: none;">
-            <h3>Learn a New Topic</h3>
-            <div class="form-group">
-                <label for="topic-input">What topic would you like to learn?</label>
-                <input type="text" id="topic-input" placeholder="e.g., Quantum Physics, Spanish Grammar, Machine Learning">
-            </div>
-            
-            <div class="form-group">
-                <label for="topic-aspect">What specific aspect or level?</label>
-                <input type="text" id="topic-aspect" placeholder="e.g., 'Basics for beginners' or 'Advanced concepts'">
-            </div>
-            
-            <button class="start-btn" onclick="startNewTopicLearning()">Start Learning</button>
-            <button class="back-btn" onclick="backToOptions()">Back</button>
         </div>
     </div>
     
@@ -77,12 +41,12 @@
             </div>
             <div class="chat-input-container">
                 <form id="chat-form">
-                    <textarea id="user-input" placeholder="Type your question here..." rows="3"></textarea>
+                    <textarea id="user-input" placeholder="Type your answer here..." rows="3"></textarea>
                     <button type="submit" id="send-button">Send</button>
                 </form>
             </div>
         </div>
-        <button id="setup-again-btn" class="setup-again-btn" onclick="showSetup()">Change Learning Topic</button>
+        <button id="setup-again-btn" class="setup-again-btn" onclick="showSetup()">Select Different Deck</button>
     </div>
 </div>
 
@@ -212,36 +176,6 @@
         margin: 0 auto;
     }
     
-    .setup-options {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 30px;
-    }
-    
-    .setup-option {
-        flex: 1;
-        padding: 20px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        text-align: center;
-        transition: all 0.3s ease;
-    }
-    
-    .setup-option:hover {
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        transform: translateY(-5px);
-    }
-    
-    .option-btn {
-        padding: 8px 20px;
-        background-color: #0084ff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-top: 10px;
-    }
-    
     .setup-detail {
         padding: 20px;
         border: 1px solid #ddd;
@@ -295,16 +229,6 @@
         font-size: 16px;
     }
     
-    .back-btn {
-        padding: 10px 25px;
-        background-color: #f1f1f1;
-        color: #333;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-left: 10px;
-    }
-    
     .setup-again-btn {
         margin-top: 15px;
         padding: 8px 15px;
@@ -324,6 +248,7 @@
     let selectedDeckId = null;
     let selectedQuestions = [];
     let currentLearningContext = null;
+    let currentThreadId = null;
     
     document.addEventListener('DOMContentLoaded', function() {
         const chatForm = document.getElementById('chat-form');
@@ -345,7 +270,7 @@
             // Show loading indicator
             const loadingId = showLoadingIndicator();
             
-            // Send message to backend with context
+            // Send message to backend with context and thread_id
             fetch('{% url "users:tutor_chat" %}', {
                 method: 'POST',
                 headers: {
@@ -354,16 +279,19 @@
                 },
                 body: JSON.stringify({
                     message: message,
-                    context: currentLearningContext
+                    context: currentLearningContext,
+                    thread_id: currentThreadId
                 })
             })
             .then(response => response.json())
             .then(data => {
-                // Remove loading indicator
                 hideLoadingIndicator(loadingId);
-                
-                // Add AI response to chat
                 addMessage(data.response, 'system');
+                
+                // Store thread_id if it's returned
+                if (data.thread_id) {
+                    currentThreadId = data.thread_id;
+                }
                 
                 // Scroll to bottom
                 chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -386,35 +314,6 @@
             }
         });
     });
-    
-    // Function to show deck setup
-    function showDeckSetup() {
-        document.getElementById('deck-option').style.display = 'none';
-        document.getElementById('new-topic-option').style.display = 'none';
-        document.getElementById('deck-setup').style.display = 'block';
-    }
-    
-    // Function to show new topic setup
-    function showNewTopicSetup() {
-        document.getElementById('deck-option').style.display = 'none';
-        document.getElementById('new-topic-option').style.display = 'none';
-        document.getElementById('new-topic-setup').style.display = 'block';
-    }
-    
-    // Function to go back to main options
-    function backToOptions() {
-        document.getElementById('deck-setup').style.display = 'none';
-        document.getElementById('new-topic-setup').style.display = 'none';
-        document.getElementById('questions-container').style.display = 'none';
-        document.getElementById('deck-option').style.display = 'block';
-        document.getElementById('new-topic-option').style.display = 'block';
-        
-        // Reset selections
-        document.getElementById('deck-select').value = '';
-        document.getElementById('questions-list').innerHTML = '';
-        selectedDeckId = null;
-        selectedQuestions = [];
-    }
     
     // Function to load questions from selected deck
     function loadDeckQuestions() {
@@ -523,16 +422,16 @@
             document.getElementById('deck-select').selectedIndex
         ].text;
         
-        const learningGoal = document.getElementById('learning-goal').value.trim();
-        
         // Create context for the AI
         currentLearningContext = {
-            type: 'deck',
+            type: 'practice_test',
             deckId: selectedDeckId,
             deckName: deckName,
-            questionIds: selectedQuestions,
-            goal: learningGoal || 'Help me understand these concepts'
+            questionIds: selectedQuestions
         };
+        
+        // Reset thread ID for new session
+        currentThreadId = null;
         
         // Hide setup and show chat
         document.getElementById('tutor-setup').style.display = 'none';
@@ -542,7 +441,7 @@
         document.getElementById('chat-messages').innerHTML = '';
         
         // Add initial message
-        let initialMessage = `I'll help you learn about ${deckName}. `;
+        let initialMessage = `I'll help you practice test on ${deckName}. `;
         
         if (selectedQuestions.length > 0) {
             initialMessage += `We'll focus on the ${selectedQuestions.length} questions you selected. `;
@@ -550,7 +449,7 @@
             initialMessage += `We'll cover all the cards in this deck. `;
         }
         
-        initialMessage += `${learningGoal ? 'Your goal is: ' + learningGoal : 'Let me know how you want to proceed.'}`;
+        initialMessage += `I'll ask you questions one by one without giving away the answers. Let's begin!`;
         
         addMessage(initialMessage, 'system');
         
@@ -564,7 +463,7 @@
                 'X-CSRFToken': getCookie('csrftoken')
             },
             body: JSON.stringify({
-                message: 'Let\'s start learning. Please give me an overview of what we\'ll cover.',
+                message: 'Let\'s start the practice test. Please ask me the first question.',
                 context: currentLearningContext,
                 initial: true
             })
@@ -573,6 +472,11 @@
         .then(data => {
             hideLoadingIndicator(loadingId);
             addMessage(data.response, 'system');
+            
+            // Store thread_id if it's returned
+            if (data.thread_id) {
+                currentThreadId = data.thread_id;
+            }
             
             // Scroll to bottom
             document.getElementById('chat-messages').scrollTop = 
@@ -585,84 +489,21 @@
         });
     }
     
-    // Function to start learning new topic
-    function startNewTopicLearning() {
-        const topic = document.getElementById('topic-input').value.trim();
-        const aspect = document.getElementById('topic-aspect').value.trim();
-        
-        if (!topic) {
-            alert('Please enter a topic to learn about.');
-            return;
-        }
-        
-        // Create context for the AI
-        currentLearningContext = {
-            type: 'new_topic',
-            topic: topic,
-            aspect: aspect
-        };
-        
-        // Hide setup and show chat
-        document.getElementById('tutor-setup').style.display = 'none';
-        document.getElementById('tutor-chat').style.display = 'block';
-        
-        // Clear previous chat
-        document.getElementById('chat-messages').innerHTML = '';
-        
-        // Add initial message
-        addMessage(`I'll help you learn about ${topic}${aspect ? ' focusing on ' + aspect : ''}. Let me create a learning plan for you.`, 'system');
-        
-        // Send initial request to get learning plan
-        const loadingId = showLoadingIndicator();
-        
-        fetch('{% url "users:tutor_chat" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                message: `I want to learn about ${topic}${aspect ? ' focusing on ' + aspect : ''}. Please create a learning plan.`,
-                context: currentLearningContext,
-                initial: true
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            hideLoadingIndicator(loadingId);
-            addMessage(data.response, 'system');
-            
-            // Scroll to bottom
-            document.getElementById('chat-messages').scrollTop = 
-                document.getElementById('chat-messages').scrollHeight;
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            hideLoadingIndicator(loadingId);
-            addMessage('Sorry, there was an error creating your learning plan.', 'system');
-        });
-    }
-    
     // Function to show setup again
     function showSetup() {
         document.getElementById('tutor-chat').style.display = 'none';
         document.getElementById('tutor-setup').style.display = 'block';
-        document.getElementById('deck-option').style.display = 'block';
-        document.getElementById('new-topic-option').style.display = 'block';
-        document.getElementById('deck-setup').style.display = 'none';
-        document.getElementById('new-topic-setup').style.display = 'none';
         
         // Reset form fields
         document.getElementById('deck-select').value = '';
         document.getElementById('questions-list').innerHTML = '';
-        document.getElementById('learning-goal').value = '';
-        document.getElementById('topic-input').value = '';
-        document.getElementById('topic-aspect').value = '';
+        document.getElementById('questions-container').style.display = 'none';
         
         // Reset selections
         selectedDeckId = null;
         selectedQuestions = [];
         currentLearningContext = null;
+        currentThreadId = null;
     }
     
     // Helper functions for chat
