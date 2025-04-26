@@ -82,8 +82,20 @@
                         Audio
                     </label>
                     <label>
-                        <input type="checkbox" id="attachment-gifs">
-                        GIFs
+                        <input type="checkbox" id="attachment-poetry">
+                        Poetry
+                    </label>
+                    <label>
+                        <input type="checkbox" id="attachment-haiku">
+                        Haiku
+                    </label>
+                    <label>
+                        <input type="checkbox" id="attachment-story">
+                        Short Story
+                    </label>
+                    <label>
+                        <input type="checkbox" id="attachment-quote">
+                        Inspirational Quote
                     </label>
                 </div>
             </div>
@@ -235,16 +247,33 @@
         font-weight: 500;
     }
     
-    /* Updated modal styles to match decks.html */
-    .modal-backdrop {
+    /* Updated modal styles to fix positioning */
+    .modal {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
         background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1000;
-        display: none;
+        overflow-y: auto;
+        padding: 20px 0;
+    }
+    
+    .modal-content {
+        background-color: white;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        max-height: 80vh; /* Reduced from 90vh to ensure buttons are visible */
+        overflow-y: auto;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        padding: 20px;
+        position: relative;
+        margin: auto; /* Center vertically when content is shorter than viewport */
     }
     
     .custom-modal {
@@ -342,6 +371,24 @@
     .modal-open {
         overflow: hidden;
     }
+    
+    /* Add some spacing to the bottom of the form to ensure scrollability */
+    #persona-form {
+        padding-bottom: 10px;
+    }
+    
+    /* Ensure the modal buttons are always visible */
+    .modal-buttons {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        position: sticky;
+        bottom: 0;
+        background-color: white;
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+    }
 </style>
 
 <!-- Add Bootstrap JS if it's not in your base template -->
@@ -422,9 +469,10 @@
                 
                 // Set attachments
                 if (data.attachments) {
-                    data.attachments.forEach(att => {
-                        const checkbox = document.getElementById(`attachment-${att}`);
-                        if (checkbox) checkbox.checked = true;
+                    const attachmentTypes = ['images', 'audio', 'poetry', 'haiku', 'story', 'quote'];
+                    attachmentTypes.forEach(type => {
+                        const checkbox = document.getElementById(`attachment-${type}`);
+                        if (checkbox) checkbox.checked = data.attachments.includes(type);
                     });
                 }
                 
@@ -562,7 +610,16 @@
             const attachments = [];
             if (document.getElementById('attachment-images').checked) attachments.push('images');
             if (document.getElementById('attachment-audio').checked) attachments.push('audio');
-            if (document.getElementById('attachment-gifs').checked) attachments.push('gifs');
+            if (document.getElementById('attachment-poetry').checked) attachments.push('poetry');
+            if (document.getElementById('attachment-haiku').checked) attachments.push('haiku');
+            if (document.getElementById('attachment-story').checked) attachments.push('story');
+            if (document.getElementById('attachment-quote').checked) attachments.push('quote');
+            
+            // Validate that at least one attachment is selected
+            if (attachments.length === 0) {
+                alert('Please select at least one attachment type');
+                return;
+            }
             
             // Determine if this is a create or update operation
             const isUpdate = saveBtn.dataset.action === 'update';

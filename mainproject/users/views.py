@@ -25,6 +25,7 @@ from email.mime.audio import MIMEAudio
 import os
 import uuid
 from django.db.models import Q
+import re
 
 # Create your views here.
 
@@ -490,57 +491,132 @@ def generate_reminder_email(persona, deck, due_cards_count):
         due_cards = deck.cards.filter(next_review_time__lte=timezone.now())[:3]
         sample_questions = [card.question for card in due_cards]
         
-        # Create the prompt for OpenAI
-        prompt = f"""
-        Create a very short, catchy email reminder to review flashcards.
+        # Determine which attachments are enabled
+        attachments = persona.attachments if isinstance(persona.attachments, list) else []
+        attachments = [att.lower() for att in attachments]
         
-        The email should be written in the style of {persona.persona_type} with a {persona.tone} tone.
+        # For image or audio only, use a simple message
+        if len(attachments) == 1 and (('images' in attachments) or ('audio' in attachments)):
+            email_content = "Here's a message for you"
+            subject = f"Time for a quick review! 📚"
+        else:
+            # Create the prompt for OpenAI based on attachment types
+            attachment_prompts = []
+            
+            if 'poetry' in attachments:
+                attachment_prompts.append("Include a short poem (4-6 lines) related to learning or memory.")
+            
+            if 'haiku' in attachments:
+                attachment_prompts.append("Include a haiku (3 lines with 5-7-5 syllable pattern) about studying or memory.")
+            
+            if 'story' in attachments:
+                attachment_prompts.append("Include a very short story or anecdote (2-3 sentences) related to the importance of reviewing.")
+            
+            if 'quote' in attachments:
+                attachment_prompts.append("Include an inspirational quote about learning or knowledge.")
+            
+            attachment_instructions = "\n".join(attachment_prompts)
+            
+            prompt = f"""
+            Create a very short, catchy email reminder to review flashcards.
+            
+            The email should be written in the style of {persona.persona_type} with a {persona.tone} tone.
+            
+            The email should remind the user that they have {due_cards_count} cards due for review. DO NOT mention the deck name directly.
+            
+            Use these sample questions from the cards to personalize the email (without explicitly saying these are from the deck):
+            {', '.join(sample_questions)}
+            
+            The email should be extremely concise (2-3 lines maximum) and attention-grabbing.
+            
+            Use markdown formatting to make the email visually appealing.
+            
+            Include appropriate emojis ONLY in the subject line, not in the body text.
+            
+            {attachment_instructions}
+            
+            Format the email with a subject line and body only. No greeting or sign-off needed.
+            """
+            
+            if getattr(settings, 'EMAIL_DEBUG', False):
+                print(f"[EMAIL DEBUG] Sending prompt to OpenAI: {prompt[:100]}...")
+            
+            # Call OpenAI API using the new format
+            response = client.chat.completions.create(
+                model="gpt-4",  # or whatever model you prefer
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that writes extremely concise, personalized emails with markdown formatting and appropriate emojis."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
+            
+            # Extract the generated email content using the new response format
+            email_content = response.choices[0].message.content
+            
+            if getattr(settings, 'EMAIL_DEBUG', False):
+                print(f"[EMAIL DEBUG] Received response from OpenAI: {len(email_content)} chars")
+            
+            # Parse the markdown to extract subject and body
+            lines = email_content.strip().split('\n')
+            subject = lines[0].replace('Subject:', '').replace('#', '').strip()
+
+            # Skip any empty lines after the subject and before the body content
+            body_start = 1
+            while body_start < len(lines) and not lines[body_start].strip():
+                body_start += 1
+
+            # Remove any "Body:" prefix if present
+            body_lines = lines[body_start:]
+            if body_lines and body_lines[0].lower().startswith('body:'):
+                body_lines[0] = body_lines[0].replace('Body:', '', 1).strip()
+                # If that made the line empty, remove it
+                if not body_lines[0]:
+                    body_lines = body_lines[1:]
+
+            body = '\n'.join(body_lines)
         
-        The email should remind the user that they have {due_cards_count} cards due for review in their deck named "{deck.name}".
+        # Extract specific content types if present
+        poetry_content = None
+        haiku_content = None
+        story_content = None
+        quote_content = None
         
-        Use these sample questions from the deck to personalize the email:
-        {', '.join(sample_questions)}
+        # Simple extraction logic - this could be improved with more sophisticated parsing
+        if 'poetry' in attachments:
+            poetry_match = re.search(r'(?:Poem:|Poetry:)(.*?)(?:\n\n|\Z)', email_content, re.DOTALL)
+            if poetry_match:
+                poetry_content = poetry_match.group(1).strip()
         
-        The email should be extremely concise (2-3 lines maximum) and attention-grabbing.
+        if 'haiku' in attachments:
+            haiku_match = re.search(r'(?:Haiku:|Haiku)(.*?)(?:\n\n|\Z)', email_content, re.DOTALL)
+            if haiku_match:
+                haiku_content = haiku_match.group(1).strip()
         
-        Format the email in markdown with a subject line, greeting, body, and sign-off.
-        """
+        if 'story' in attachments:
+            story_match = re.search(r'(?:Story:|Anecdote:|Short story:)(.*?)(?:\n\n|\Z)', email_content, re.DOTALL)
+            if story_match:
+                story_content = story_match.group(1).strip()
         
-        if getattr(settings, 'EMAIL_DEBUG', False):
-            print(f"[EMAIL DEBUG] Sending prompt to OpenAI: {prompt[:100]}...")
+        if 'quote' in attachments:
+            quote_match = re.search(r'(?:Quote:|")(.*?)(?:"|(?:\n\n)|\Z)', email_content, re.DOTALL)
+            if quote_match:
+                quote_content = quote_match.group(1).strip()
         
-        # Call OpenAI API using the new format
-        response = client.chat.completions.create(
-            model="gpt-4",  # or whatever model you prefer
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that writes extremely concise, personalized emails."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=300,
-            temperature=0.7
-        )
-        
-        # Extract the generated email content using the new response format
-        email_content = response.choices[0].message.content
-        
-        if getattr(settings, 'EMAIL_DEBUG', False):
-            print(f"[EMAIL DEBUG] Received response from OpenAI: {len(email_content)} chars")
-        
-        # Parse the markdown to extract subject and body
-        lines = email_content.strip().split('\n')
-        subject = lines[0].replace('Subject:', '').replace('#', '').strip()
-        body = '\n'.join(lines[1:])
-        
-        if getattr(settings, 'EMAIL_DEBUG', False):
-            print(f"[EMAIL DEBUG] Extracted subject: {subject}")
-            print(f"[EMAIL DEBUG] Email body length: {len(body)} chars")
-        
-        # Return the email data
+        # Return the email data with all content types
         return {
             'subject': subject,
             'body': body,
-            # Add a flag to indicate if we should include an image
-            'include_image': 'images' in persona.attachments,
+            'include_image': 'images' in attachments,
+            'include_poetry': 'poetry' in attachments,
+            'include_haiku': 'haiku' in attachments,
+            'include_story': 'story' in attachments,
+            'include_quote': 'quote' in attachments,
+            'poetry_content': poetry_content,
+            'haiku_content': haiku_content,
+            'story_content': story_content,
+            'quote_content': quote_content,
             'sample_questions': sample_questions
         }
     except Exception as e:
@@ -561,23 +637,23 @@ def generate_fallback_email(persona, deck, due_cards_count):
     due_cards = deck.cards.filter(next_review_time__lte=timezone.now())[:2]
     sample_questions = [card.question for card in due_cards]
     
-    # Create different templates based on persona type
+    # Create different templates based on persona type with emojis only in subject
     templates = {
         'Friendly': {
-            'subject': f"Quick review needed: {deck.name}",
-            'body': f"Hey! {due_cards_count} cards waiting, including '{sample_questions[0] if sample_questions else 'your flashcards'}'. Review now?"
+            'subject': f"Time for a quick review! 📚",
+            'body': f"### Hey there!\n\n**{due_cards_count} cards** are waiting for you, including questions like '*{sample_questions[0] if sample_questions else 'your study materials'}*'. \n\n**Ready to boost your memory?**"
         },
         'Professional': {
-            'subject': f"{due_cards_count} cards due: {deck.name}",
-            'body': f"Time for a quick review of '{sample_questions[0] if sample_questions else deck.name}' and {due_cards_count-1} other cards."
+            'subject': f"{due_cards_count} cards due for review 📊",
+            'body': f"### Knowledge Maintenance Alert\n\nYou have **{due_cards_count} items** scheduled for review today, including '*{sample_questions[0] if sample_questions else 'your study materials'}*'.\n\n**Consistent review leads to mastery.**"
         },
         'Motivational': {
-            'subject': f"Can you answer this? {sample_questions[0][:30] + '...' if sample_questions else deck.name}",
-            'body': f"Challenge yourself! {due_cards_count} questions waiting for your brilliant mind."
+            'subject': f"Challenge yourself! 🏆 Can you answer these?",
+            'body': f"### It's time to level up!\n\n**{due_cards_count} questions** are waiting for your brilliant mind.\n\n*\"Every review strengthens your neural connections!\"*"
         },
         'Humorous': {
-            'subject': f"Your flashcards miss you!",
-            'body': f"Your cards are getting dusty! Can you still answer '{sample_questions[0] if sample_questions else 'your questions'}'? Find out now!"
+            'subject': f"Your flashcards are feeling neglected! 😢",
+            'body': f"### Knock knock!\n\nYour flashcards called and they're feeling *lonely*!\n\nCan you still answer '*{sample_questions[0] if sample_questions else 'your questions'}*'? **{due_cards_count} cards** are eagerly awaiting your attention!"
         }
     }
     
@@ -586,7 +662,7 @@ def generate_fallback_email(persona, deck, due_cards_count):
     
     # Adjust tone based on persona tone
     if persona.tone.lower() == 'urgent' and 'urgent' not in template['subject'].lower():
-        template['subject'] = f"URGENT: {template['subject']}"
+        template['subject'] = f"URGENT: {template['subject']} ⚠️"
     
     if getattr(settings, 'EMAIL_DEBUG', False):
         print(f"[EMAIL DEBUG] Generated fallback subject: {template['subject']}")
@@ -810,9 +886,9 @@ def send_review_reminders():
         decks = persona.decks.all()
         
         for deck in decks:
-            # Check if we've already sent a reminder today
-            if deck.last_reminder_sent and (now - deck.last_reminder_sent).days < 1:
-                continue
+            # Comment out or modify the time check for testing
+            # if deck.last_reminder_sent and (now - deck.last_reminder_sent).days < 1:
+            #     continue
                 
             # Count due cards
             due_cards_count = deck.cards.filter(
@@ -835,10 +911,11 @@ def send_review_reminders():
             
             # Check what attachment types are available - case insensitive check
             available_attachments = []
-            if any(att.lower() == 'images' for att in persona.attachments) if isinstance(persona.attachments, list) else 'images' in str(persona.attachments).lower():
-                available_attachments.append('images')
-            if any(att.lower() == 'audio' for att in persona.attachments) if isinstance(persona.attachments, list) else 'audio' in str(persona.attachments).lower():
-                available_attachments.append('audio')
+            attachment_types = ['images', 'audio', 'gifs', 'poetry', 'haiku', 'story', 'quote']
+            
+            for att_type in attachment_types:
+                if any(att.lower() == att_type for att in persona.attachments) if isinstance(persona.attachments, list) else att_type in str(persona.attachments).lower():
+                    available_attachments.append(att_type)
             
             # Randomly select one attachment type if any are available
             selected_attachment = random.choice(available_attachments) if available_attachments else None
@@ -863,6 +940,14 @@ def send_review_reminders():
             clean_body = clean_body.replace('**', '')  # Remove bold markers
             clean_body = '\n'.join([line for line in clean_body.split('\n') if line.strip()])  # Remove empty lines
             
+            # Process the markdown formatting first
+            formatted_body = clean_body
+            formatted_body = formatted_body.replace('**', '<strong>').replace('</strong>', '</strong>')
+            formatted_body = formatted_body.replace('*', '<em>').replace('</em>', '</em>')
+            formatted_body = formatted_body.replace('###', '<h3>')
+            formatted_body = formatted_body.replace('\n\n', '</p><p>')
+            formatted_body = formatted_body.replace('\n', '<br>')
+            
             # Create HTML version with a button/link to the deck
             html_content = f"""
             <html>
@@ -870,21 +955,34 @@ def send_review_reminders():
                 <style>
                     body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
                     .content {{ margin-bottom: 30px; font-size: 18px; text-align: center; }}
+                    h3 {{ color: #2c3e50; margin-bottom: 15px; }}
+                    strong, b {{ color: #3498db; font-weight: bold; }}
+                    em, i {{ font-style: italic; color: #555; }}
                     .review-button {{ background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 15px; }}
                     .review-button:hover {{ background-color: #2980b9; }}
-                    img {{ max-width: 100%; height: auto; margin: 20px 0; }}
+                    img {{ max-width: 100%; height: auto; margin: 20px auto; display: block; }}
+                    .image-container {{ text-align: center; margin: 25px 0; }}
                     .signature {{ margin-top: 20px; font-style: italic; text-align: center; }}
                     .audio-player {{ margin: 20px 0; text-align: center; }}
+                    blockquote {{ border-left: 4px solid #3498db; padding-left: 15px; margin-left: 0; font-style: italic; color: #555; }}
+                    .poetry-content, .haiku-content, .story-content, .quote-content {{ 
+                        background-color: #f9f9f9; 
+                        border-radius: 8px; 
+                        padding: 15px; 
+                        margin: 15px 0; 
+                        text-align: center;
+                        font-style: italic;
+                    }}
                 </style>
             </head>
             <body>
                 <div class="content">
-                    {clean_body}
+                    {formatted_body}
                 </div>
                 <div style="text-align: center;">
                     <a href="{review_url}" class="review-button">Review Now</a>
                 </div>
-                {f'<div><img src="cid:reminder_image.jpg" alt="Reminder Image"></div>' if include_image else ''}
+                {f'<div class="image-container"><img src="cid:reminder_image.jpg" alt="Reminder Image"></div>' if include_image else ''}
                 {f'<div class="audio-player"><p>Listen to your personalized reminder:</p><audio controls><source src="cid:reminder_audio.mp3" type="audio/mpeg">Your browser does not support the audio element.</audio></div>' if include_audio else ''}
             </body>
             </html>
