@@ -15,28 +15,49 @@
         
         <!-- Existing Decks -->
         {% for deck in decks %}
-        <div class="deck-card" onclick="window.location='{% url 'users:deck_detail' deck.id %}'">
-            <div class="deck-options">
-                <div class="options-dots" data-deck-id="{{ deck.id }}">⋮</div>
-                <div class="options-menu" id="options-menu-{{ deck.id }}">
-                    <div class="option-item" onclick="renameDeck('{{ deck.id }}', '{{ deck.name|escapejs }}', event)">Rename</div>
-                    <div class="option-item" onclick="deleteDeck('{{ deck.id }}', event)">Delete</div>
-                    <div class="option-item" onclick="managePersonas('{{ deck.id }}', event)">Manage Personas</div>
+        <div class="deck-card">
+            <div class="deck-header">
+                <div class="deck-name">{{ deck.name }}</div>
+                <div class="deck-options">
+                    <div class="options-dots" data-deck-id="{{ deck.id }}">⋮</div>
+                    <div class="options-menu" id="options-menu-{{ deck.id }}">
+                        <div class="option-item" onclick="renameDeck('{{ deck.id }}', '{{ deck.name|escapejs }}', event)">Rename</div>
+                        <div class="option-item delete-option" onclick="deleteDeck('{{ deck.id }}', event)">Delete</div>
+                    </div>
                 </div>
             </div>
-            <div class="deck-info">
-                <div class="card-count">No. of cards: {{ deck.card_count }}</div>
-                <div class="deck-name">{{ deck.name }}</div>
-                {% if deck.personas.all %}
-                <div class="deck-personas">
-                    <small>Reminders by: 
+            
+            <div class="deck-content">
+                <div class="deck-stats">
+                    <div class="card-count">
+                        <i class="fas fa-cards"></i>
+                        {{ deck.card_count }} Cards
+                    </div>
+                    {% if deck.personas.all %}
+                    <div class="deck-personas">
+                        <i class="fas fa-robot"></i>
+                        <span class="persona-label">Reminders by:</span>
                         {% for persona in deck.personas.all %}
-                        <span class="persona-badge">{{ persona.name }}</span>
+                        <span class="persona-badge" onclick="managePersonas('{{ deck.id }}', event)">{{ persona.name }}</span>
                         {% endfor %}
-                    </small>
+                    </div>
+                    {% else %}
+                    <div class="deck-personas">
+                        <i class="fas fa-robot"></i>
+                        <span class="persona-label">Reminders by:</span>
+                        <span class="persona-badge add-persona" onclick="managePersonas('{{ deck.id }}', event)">Add Persona</span>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
-                <a href="{% url 'users:review_deck' deck.id %}" class="review-btn" onclick="event.stopPropagation();">Review</a>
+                
+                <div class="deck-actions">
+                    <a href="{% url 'users:deck_detail' deck.id %}" class="action-btn cards-btn">
+                        <i class="fas fa-list"></i> Cards
+                    </a>
+                    <a href="{% url 'users:review_deck' deck.id %}" class="action-btn review-btn">
+                        <i class="fas fa-sync"></i> Review
+                    </a>
+                </div>
             </div>
         </div>
         {% endfor %}
@@ -204,7 +225,8 @@ function deleteDeck(deckId, event) {
     });
     
     // Set the form action and show the delete modal
-    document.getElementById('delete-deck-form').action = `/users/deck/${deckId}/delete/`;
+    const form = document.getElementById('delete-deck-form');
+    form.action = `/users/delete-deck/${deckId}/`;
     document.getElementById('delete-deck-modal').style.display = 'block';
 }
 
@@ -336,17 +358,16 @@ function updateDeckPersonaUI(deckId, personas) {
     if (!personasDiv) {
         personasDiv = document.createElement('div');
         personasDiv.className = 'deck-personas';
-        deckCard.querySelector('.deck-info').insertBefore(
+        deckCard.querySelector('.deck-content').insertBefore(
             personasDiv, 
-            deckCard.querySelector('.review-btn')
+            deckCard.querySelector('.deck-actions')
         );
     }
     
     // Update the content - now we only show one persona
     personasDiv.innerHTML = `
-        <small>Reminder by: 
-            <span class="persona-badge">${personas[0].name}</span>
-        </small>
+        <i class="fas fa-robot"></i>
+        <span class="persona-badge">${personas[0].name}</span>
     `;
 }
 
@@ -369,45 +390,190 @@ function getCookie(name) {
 
 <style>
 /* Deck card styling */
+.decks-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
 .deck-card {
     position: relative;
     background: white;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
+    border-radius: 4px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px solid var(--border-color);
 }
 
 .deck-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.deck-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.deck-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+.deck-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.deck-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.card-count {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+.deck-personas {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+.persona-label {
+    color: var(--text-secondary);
+}
+
+.persona-badge {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--hover-color);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.8125rem;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+.persona-badge:hover {
+    background-color: #f0f0f0;
+}
+
+.add-persona {
+    color: var(--text-secondary);
+    border: 1px dashed var(--border-color);
+}
+
+.deck-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+.cards-btn {
+    background-color: var(--hover-color);
+    color: var(--text-color);
+}
+
+.review-btn {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cards-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.review-btn:hover {
+    background-color: #e55c17;
+}
+
+/* Create deck card styling */
+.create-deck {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+    background-color: var(--background-color);
+    border: 2px dashed var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.create-deck:hover {
+    background-color: var(--hover-color);
+    border-color: var(--accent-color);
+}
+
+.deck-icon {
+    font-size: 1.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
 }
 
 /* Options menu styling */
 .deck-options {
-    position: absolute;
-    top: 10px;
-    right: 10px;
+    position: relative;
 }
 
 .options-dots {
     cursor: pointer;
-    font-size: 20px;
-    color: #6c757d;
-    width: 30px;
-    height: 30px;
+    font-size: 18px;
+    color: var(--text-secondary);
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+    border-radius: 4px;
     transition: background-color 0.2s;
     user-select: none;
 }
 
 .options-dots:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--hover-color);
 }
 
 .options-menu {
@@ -415,56 +581,150 @@ function getCookie(name) {
     right: 0;
     top: 100%;
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     min-width: 120px;
     display: none;
     z-index: 1000;
     overflow: hidden;
-    margin-top: 5px;
+    margin-top: 4px;
+    border: 1px solid var(--border-color);
 }
 
 .option-item {
-    padding: 10px 15px;
+    padding: 8px 12px;
     cursor: pointer;
     transition: background-color 0.2s;
     white-space: nowrap;
+    font-size: 0.875rem;
+    color: var(--text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
 }
 
 .option-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--hover-color);
 }
 
-/* Persona badge styling */
-.persona-badge {
-    display: inline-block;
-    background-color: #e9ecef;
-    border-radius: 12px;
-    padding: 2px 8px;
-    font-size: 0.8rem;
-    margin-right: 5px;
-    color: #495057;
+.delete-option {
+    color: var(--error-color);
 }
 
-/* Persona selection styling */
-.personas-selection {
-    max-height: 300px;
-    overflow-y: auto;
+.delete-option:hover {
+    background-color: #ffebee;
+}
+
+/* Modal styling improvements */
+.modal-content {
+    max-width: 400px;
+    width: 90%;
+    padding: 24px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.form-group {
     margin-bottom: 20px;
 }
 
-.persona-option {
-    padding: 8px 0;
-    border-bottom: 1px solid #f1f1f1;
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.9375rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
 }
 
-.persona-option:last-child {
-    border-bottom: none;
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9375rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
 }
 
-.persona-option label {
-    margin-left: 8px;
+.form-group input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: none;
     cursor: pointer;
+    font-size: 0.9375rem;
+    transition: all 0.2s;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+.btn-secondary {
+    background-color: var(--hover-color);
+    color: var(--text-color);
+}
+
+.btn-danger {
+    background-color: var(--error-color);
+    color: white;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary:hover {
+    background-color: #f0f0f0;
+}
+
+.btn-danger:hover {
+    background-color: #b71c1c;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-content {
+    max-width: 400px;
+    width: 90%;
+    padding: 24px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    position: relative;
+    margin: 10% auto;
+}
+
+.modal-content h3 {
+    margin: 0 0 16px 0;
+    color: var(--text-color);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.modal-content p {
+    margin: 0 0 24px 0;
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.5;
 }
 </style>
 {% endblock %} 
