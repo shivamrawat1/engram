@@ -1175,7 +1175,6 @@ def reset_card_streak(request, card_id):
         card.next_review_time = timezone.now()  # Make it due immediately
         card.save()
         
-        messages.success(request, 'Card streak has been reset.')
         return redirect('users:deck_detail', deck_id=card.deck.id)
     except Card.DoesNotExist:
         messages.error(request, 'Card not found.')

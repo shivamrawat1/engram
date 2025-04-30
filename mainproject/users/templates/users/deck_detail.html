@@ -68,6 +68,7 @@
 <!-- Create Card Modal -->
 <div id="create-card-modal" class="modal">
     <div class="modal-content">
+        <h3>Create New Card</h3>
         <form action="{% url 'users:create_card' deck.id %}" method="post">
             {% csrf_token %}
             <div class="form-group">
@@ -86,7 +87,7 @@
         </form>
         
         <!-- Card Analysis Results -->
-        <div id="card-analysis-container" style="display: none; margin-top: 20px;">
+        <div id="card-analysis-container" style="display: none;">
             <h4>Card Analysis</h4>
             <div id="card-analysis-loading" class="text-center">
                 <p>Analyzing your card...</p>
@@ -102,6 +103,7 @@
 <!-- Edit Card Modal -->
 <div id="edit-card-modal" class="modal">
     <div class="modal-content">
+        <h3>Edit Card</h3>
         <form id="edit-card-form" action="" method="post">
             {% csrf_token %}
             <div class="form-group">
@@ -120,7 +122,7 @@
         </form>
         
         <!-- Edit Card Analysis Results -->
-        <div id="edit-card-analysis-container" style="display: none; margin-top: 20px;">
+        <div id="edit-card-analysis-container" style="display: none;">
             <h4>Card Analysis</h4>
             <div id="edit-card-analysis-loading" class="text-center">
                 <p>Analyzing your card...</p>
@@ -137,14 +139,33 @@
 <div id="delete-card-modal" class="modal">
     <div class="modal-content">
         <h3>Delete Card</h3>
-        <p>Are you sure you want to delete this card? This action cannot be undone.</p>
-        <form id="delete-card-form" action="" method="post">
-            {% csrf_token %}
-            <div class="modal-buttons">
-                <button type="button" id="cancel-delete-card" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-danger">Delete</button>
-            </div>
-        </form>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this card? This action cannot be undone.</p>
+            <form id="delete-card-form" action="" method="post">
+                {% csrf_token %}
+                <div class="modal-buttons">
+                    <button type="button" id="cancel-delete-card" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-info">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Streak Confirmation Modal -->
+<div id="reset-streak-modal" class="modal">
+    <div class="modal-content">
+        <h3>Reset Card Progress</h3>
+        <div class="modal-body">
+            <p>Are you sure you want to reset this card's progress? This will set the streak back to zero and reset the review schedule.</p>
+            <form id="reset-streak-form" action="" method="post">
+                {% csrf_token %}
+                <div class="modal-buttons">
+                    <button type="button" id="cancel-reset-streak" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-info">Reset Progress</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -177,10 +198,12 @@
         
         createCardBtn.addEventListener('click', function() {
             createCardModal.style.display = 'block';
+            createCardModal.classList.add('active');
         });
         
         cancelCreateCard.addEventListener('click', function() {
             createCardModal.style.display = 'none';
+            createCardModal.classList.remove('active');
         });
 
         // Options menu functionality
@@ -198,6 +221,13 @@
                         m.style.display = 'none';
                     }
                 });
+                
+                // Position the menu relative to the dots
+                if (menu.style.display !== 'block') {
+                    const rect = this.getBoundingClientRect();
+                    menu.style.top = `${rect.bottom + window.scrollY + 5}px`;
+                    menu.style.left = `${rect.left + window.scrollX - 100}px`; // Align to the right of the dots
+                }
                 
                 // Toggle this menu
                 menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
@@ -230,6 +260,7 @@
                 document.getElementById('edit_answer').value = answer;
                 editCardForm.action = `/users/card/${cardId}/edit/`;
                 editCardModal.style.display = 'block';
+                editCardModal.classList.add('active');
                 
                 // Hide any open options menu
                 document.querySelectorAll('.options-menu').forEach(menu => {
@@ -240,6 +271,7 @@
         
         cancelEditCard.addEventListener('click', function() {
             editCardModal.style.display = 'none';
+            editCardModal.classList.remove('active');
         });
         
         // Delete card functionality
@@ -254,6 +286,7 @@
                 const cardId = this.getAttribute('data-card-id');
                 deleteCardForm.action = `/users/card/${cardId}/delete/`;
                 deleteCardModal.style.display = 'block';
+                deleteCardModal.classList.add('active');
                 
                 // Hide any open options menu
                 document.querySelectorAll('.options-menu').forEach(menu => {
@@ -264,18 +297,16 @@
         
         cancelDeleteCard.addEventListener('click', function() {
             deleteCardModal.style.display = 'none';
+            deleteCardModal.classList.remove('active');
         });
 
-        // Reset card streak functionality
-        const resetBtns = document.querySelectorAll('.reset-card');
-        resetBtns.forEach(btn => {
-            btn.addEventListener('click', function(event) {
-                event.stopPropagation();
-                const cardId = this.getAttribute('data-card-id');
-                if (confirm('Are you sure you want to reset this card\'s progress? This will set the streak back to zero.')) {
-                    window.location.href = `/users/card/${cardId}/reset-streak/`;
-                }
-            });
+        // Reset streak modal functionality
+        const resetStreakModal = document.getElementById('reset-streak-modal');
+        const cancelResetStreak = document.getElementById('cancel-reset-streak');
+        
+        cancelResetStreak.addEventListener('click', function() {
+            resetStreakModal.style.display = 'none';
+            resetStreakModal.classList.remove('active');
         });
 
         // Analyze deck functionality
@@ -288,6 +319,7 @@
         
         analyzeDeckBtn.addEventListener('click', function() {
             analyzeDeckModal.style.display = 'block';
+            analyzeDeckModal.classList.add('active');
             analysisLoading.style.display = 'block';
             analysisResults.style.display = 'none';
             
@@ -318,21 +350,30 @@
         
         closeAnalysis.addEventListener('click', function() {
             analyzeDeckModal.style.display = 'none';
+            analyzeDeckModal.classList.remove('active');
         });
         
         // Close modals when clicking outside
         window.addEventListener('click', function(e) {
             if (e.target === createCardModal) {
                 createCardModal.style.display = 'none';
+                createCardModal.classList.remove('active');
             }
             if (e.target === editCardModal) {
                 editCardModal.style.display = 'none';
+                editCardModal.classList.remove('active');
             }
             if (e.target === deleteCardModal) {
                 deleteCardModal.style.display = 'none';
+                deleteCardModal.classList.remove('active');
             }
             if (e.target === analyzeDeckModal) {
                 analyzeDeckModal.style.display = 'none';
+                analyzeDeckModal.classList.remove('active');
+            }
+            if (e.target === resetStreakModal) {
+                resetStreakModal.style.display = 'none';
+                resetStreakModal.classList.remove('active');
             }
         });
 
@@ -395,6 +436,7 @@
         // Hide analysis when modal is closed
         cancelCreateCard.addEventListener('click', function() {
             createCardModal.style.display = 'none';
+            createCardModal.classList.remove('active');
             cardAnalysisContainer.style.display = 'none';
         });
 
@@ -457,6 +499,7 @@
         // Hide analysis when edit modal is closed
         cancelEditCard.addEventListener('click', function() {
             editCardModal.style.display = 'none';
+            editCardModal.classList.remove('active');
             editCardAnalysisContainer.style.display = 'none';
         });
     });
@@ -476,7 +519,9 @@
         document.getElementById('edit-card-form').action = `/users/card/${cardId}/edit/`;
         
         // Show the edit modal
-        document.getElementById('edit-card-modal').style.display = 'block';
+        const editCardModal = document.getElementById('edit-card-modal');
+        editCardModal.style.display = 'block';
+        editCardModal.classList.add('active');
     }
 
     // Function to confirm delete card
@@ -490,7 +535,9 @@
         
         // Set the form action and show the delete modal
         document.getElementById('delete-card-form').action = `/users/card/${cardId}/delete/`;
-        document.getElementById('delete-card-modal').style.display = 'block';
+        const deleteCardModal = document.getElementById('delete-card-modal');
+        deleteCardModal.style.display = 'block';
+        deleteCardModal.classList.add('active');
     }
 
     // Function to reset card streak
@@ -502,9 +549,11 @@
             menu.style.display = 'none';
         });
         
-        if (confirm('Are you sure you want to reset this card\'s progress? This will set the streak back to zero.')) {
-            window.location.href = `/users/card/${cardId}/reset-streak/`;
-        }
+        // Set the form action and show the reset streak modal
+        document.getElementById('reset-streak-form').action = `/users/card/${cardId}/reset-streak/`;
+        const resetStreakModal = document.getElementById('reset-streak-modal');
+        resetStreakModal.style.display = 'block';
+        resetStreakModal.classList.add('active');
     }
 </script>
 
@@ -520,8 +569,13 @@
     }
     
     .btn-info {
-        background-color: #17a2b8;
+        background-color: var(--accent-color);
         color: white;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-info:hover {
+        background-color: #e55c17;
     }
     
     .spinner {
@@ -529,7 +583,7 @@
         width: 36px;
         height: 36px;
         border-radius: 50%;
-        border-left-color: #09f;
+        border-left-color: var(--accent-color);
         animation: spin 1s linear infinite;
         margin: 20px auto;
     }
@@ -547,41 +601,94 @@
         max-height: 400px;
         overflow-y: auto;
         padding: 10px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color);
         border-radius: 4px;
         margin-bottom: 15px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
     }
     
-    /* Improved modal styling for better scrolling */
+    /* Fix modal positioning for perfect screen centering */
     .modal {
         display: none;
         position: fixed;
-        z-index: 1000;
-        left: 0;
         top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         width: 100%;
         height: 100%;
-        overflow: auto;
         background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        overflow-y: auto;
+    }
+    
+    .modal.active {
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     
     .modal-content {
-        background-color: #fff;
-        margin: 5% auto;
-        padding: 20px;
-        border-radius: 5px;
+        background-color: var(--background-color);
+        padding: 2rem;
+        border-radius: 8px;
+        max-width: 500px;
         width: 90%;
-        max-width: 600px;
-        max-height: 90vh;
+        position: relative;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        margin: 2rem auto;
+        transform: translateY(0);
+        animation: modalFadeIn 0.3s ease-out;
+        max-height: calc(100vh - 4rem); /* Account for margin */
         overflow-y: auto;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
     
+    /* Ensure modal content scrolls smoothly */
+    .modal-content::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .modal-content::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .modal-content::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+    }
+
+    @keyframes modalFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Modal body spacing */
+    .modal-body {
+        margin: 1rem 0;
+    }
+
+    /* Modal buttons */
+    .modal-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+        background: var(--background-color);
+    }
+
     /* Error message styling */
     .error {
-        color: #d9534f;
+        color: var(--error-color);
         padding: 10px;
-        background-color: #f8d7da;
+        background-color: #ffebee;
         border-radius: 4px;
         margin-bottom: 10px;
     }
@@ -590,10 +697,11 @@
         max-height: 300px;
         overflow-y: auto;
         padding: 10px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color);
         border-radius: 4px;
         margin-bottom: 15px;
         font-size: 14px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
     }
 
     .rating {
@@ -612,68 +720,98 @@
     }
 
     .rating-poor {
-        color: #dc3545;
+        color: var(--error-color);
         font-weight: bold;
     }
 
     .suggestion {
-        background-color: #f8f9fa;
+        background-color: var(--hover-color);
         padding: 8px;
-        border-left: 3px solid #17a2b8;
+        border-left: 3px solid var(--accent-color);
         margin-top: 10px;
     }
 
-    /* SM-15 specific styles for deck detail */
+    /* Cards table styling */
+    .cards-table-container {
+        background: white;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin: 20px 0;
+        position: relative;
+    }
+
+    .cards-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+
+    .cards-table th {
+        background-color: var(--hover-color);
+        color: var(--text-color);
+        font-weight: 600;
+        text-align: left;
+        padding: 12px 16px;
+        font-size: 0.875rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .cards-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-color);
+        font-size: 0.875rem;
+    }
+
+    .cards-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .cards-table tr:hover {
+        background-color: var(--hover-color);
+    }
+
+    .no-cards {
+        text-align: center;
+        color: var(--text-secondary);
+        padding: 24px;
+        font-style: italic;
+    }
+
+    /* Review status styling */
     .review-status {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
+        gap: 4px;
     }
     
     .review-due {
-        color: #dc3545;
-        font-weight: bold;
+        color: var(--error-color);
+        font-weight: 600;
         padding: 2px 6px;
-        background-color: rgba(220, 53, 69, 0.1);
+        background-color: #ffebee;
         border-radius: 4px;
+        font-size: 0.8125rem;
     }
     
     .review-scheduled {
         color: #28a745;
         font-weight: 500;
+        font-size: 0.8125rem;
     }
     
     .review-time {
-        font-size: 0.85em;
-        color: #6c757d;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
     }
     
     .review-new {
-        color: #007bff;
+        color: var(--accent-color);
         font-style: italic;
+        font-size: 0.8125rem;
     }
-    
-    .sm-info-small {
-        display: flex;
-        gap: 10px;
-        margin-top: 5px;
-        font-size: 0.85em;
-    }
-    
-    .sm-streak {
-        color: #fd7e14;
-    }
-    
-    .sm-interval {
-        color: #6610f2;
-    }
-    
-    .sm-ef {
-        color: #6f42c1;
-    }
-    
-    /* Add Font Awesome if not already included */
-    @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
 
     /* Card options menu styling */
     .card-options {
@@ -683,45 +821,138 @@
     
     .options-dots {
         cursor: pointer;
-        font-size: 20px;
-        color: #6c757d;
-        width: 30px;
-        height: 30px;
+        font-size: 18px;
+        color: var(--text-secondary);
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
+        border-radius: 4px;
         transition: background-color 0.2s;
         user-select: none;
     }
     
     .options-dots:hover {
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: var(--hover-color);
     }
     
     .options-menu {
-        position: absolute;
-        right: 0;
-        top: 100%;
+        position: fixed;
         background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         min-width: 120px;
         display: none;
-        z-index: 1000;
+        z-index: 1100;
         overflow: hidden;
-        margin-top: 5px;
+        border: 1px solid var(--border-color);
     }
     
     .option-item {
-        padding: 10px 15px;
+        padding: 8px 12px;
         cursor: pointer;
         transition: background-color 0.2s;
         white-space: nowrap;
+        font-size: 0.875rem;
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
     }
     
     .option-item:hover {
-        background-color: #f8f9fa;
+        background-color: var(--hover-color);
+    }
+
+    /* Form styling */
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--text-color);
+        font-size: 0.9375rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+
+    .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 0.9375rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .form-group textarea:focus {
+        outline: none;
+        border-color: var(--accent-color);
+    }
+
+    /* Button styling */
+    .btn {
+        padding: 8px 16px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.9375rem;
+        transition: all 0.2s;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+
+    .btn-secondary {
+        background-color: var(--hover-color);
+        color: var(--text-color);
+    }
+
+    .btn-danger {
+        background-color: var(--error-color);
+        color: white;
+    }
+
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-secondary:hover {
+        background-color: #f0f0f0;
+    }
+
+    .btn-danger:hover {
+        background-color: #b71c1c;
+    }
+
+    .btn-warning {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .btn-warning:hover {
+        background-color: #e0a800;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .modal-content {
+            width: 95%;
+            padding: 1.5rem;
+            margin: 1rem auto;
+            max-height: calc(100vh - 2rem);
+        }
+        
+        .modal-buttons {
+            flex-direction: column-reverse;
+            gap: 0.5rem;
+        }
+        
+        .modal-buttons button {
+            width: 100%;
+        }
     }
 </style>
 {% endblock %} 

@@ -14,23 +14,44 @@
     <div class="personas-container">
         <!-- Create button -->
         <div class="persona-card create-card">
-            <button id="create-persona-btn" class="btn btn-light">Create</button>
+            <div class="persona-icon">+</div>
+            <div class="persona-label">Create</div>
         </div>
         
         <!-- Existing persona cards -->
         {% for persona in personas %}
         <div class="persona-card" data-id="{{ persona.id }}">
-            <div class="persona-options">
-                <div class="options-dots" onclick="toggleOptionsMenu('{{ persona.id }}')">⋮</div>
-                <div class="options-menu" id="options-menu-{{ persona.id }}">
-                    <div class="option-item" onclick="editPersona('{{ persona.id }}')">Edit</div>
-                    <div class="option-item" onclick="confirmDeletePersona('{{ persona.id }}')">Delete</div>
+            <div class="persona-header">
+                <div class="persona-name">{{ persona.name }}</div>
+                <div class="persona-options">
+                    <div class="options-dots" onclick="toggleOptionsMenu('{{ persona.id }}')">⋮</div>
+                    <div class="options-menu" id="options-menu-{{ persona.id }}">
+                        <div class="option-item" onclick="editPersona('{{ persona.id }}')">Edit</div>
+                        <div class="option-item delete-option" onclick="confirmDeletePersona('{{ persona.id }}')">Delete</div>
+                    </div>
                 </div>
             </div>
-            <div class="persona-info">
-                <h4>{{ persona.name }}</h4>
-                <p class="persona-type">{{ persona.persona_type }}</p>
-                <p class="persona-tone">{{ persona.tone }}</p>
+            
+            <div class="persona-content">
+                <div class="persona-stats">
+                    <div class="persona-type">
+                        <i class="fas fa-user"></i>
+                        <span class="stat-label">Personality:</span>
+                        {{ persona.persona_type }}
+                    </div>
+                    <div class="persona-tone">
+                        <i class="fas fa-comment"></i>
+                        <span class="stat-label">Tone:</span>
+                        {{ persona.tone }}
+                    </div>
+                    <div class="persona-attachments">
+                        <i class="fas fa-paperclip"></i>
+                        <span class="attachment-label">Attachments:</span>
+                        {% for attachment in persona.attachments %}
+                        <span class="attachment-badge">{{ attachment }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
         {% endfor %}
@@ -48,7 +69,9 @@
             </div>
             
             <div class="form-group">
-                <label>Who do you want to hear from?</label>
+                <div class="form-group-header">
+                    <label>Who do you want to hear from?</label>
+                </div>
                 <select id="persona-type" required>
                     <option value="" selected disabled>Select a persona</option>
                     <option value="Albert Einstein">Albert Einstein</option>
@@ -60,7 +83,9 @@
             </div>
             
             <div class="form-group">
-                <label>How should your coach talk to you?</label>
+                <div class="form-group-header">
+                    <label>How should your coach talk to you?</label>
+                </div>
                 <select id="persona-tone" required>
                     <option value="" selected disabled>Select a tone</option>
                     <option value="Funny">Funny</option>
@@ -72,31 +97,23 @@
             
             <div class="form-group">
                 <label>Attachments</label>
-                <div class="attachment-options">
-                    <label>
-                        <input type="checkbox" id="attachment-images">
-                        Images
-                    </label>
-                    <label>
-                        <input type="checkbox" id="attachment-audio">
-                        Audio
-                    </label>
-                    <label>
-                        <input type="checkbox" id="attachment-poetry">
-                        Poetry
-                    </label>
-                    <label>
-                        <input type="checkbox" id="attachment-haiku">
-                        Haiku
-                    </label>
-                    <label>
-                        <input type="checkbox" id="attachment-story">
-                        Short Story
-                    </label>
-                    <label>
-                        <input type="checkbox" id="attachment-quote">
-                        Inspirational Quote
-                    </label>
+                <div class="attachment-selector">
+                    <div class="selected-attachments" id="selected-attachments">
+                        <!-- Selected attachments will be displayed here -->
+                    </div>
+                    <div class="attachment-dropdown">
+                        <button type="button" class="btn btn-secondary" onclick="toggleAttachmentDropdown()">
+                            Add Attachment
+                        </button>
+                        <div class="attachment-options" id="attachment-options">
+                            <div class="attachment-option" onclick="addAttachment('images')">Images</div>
+                            <div class="attachment-option" onclick="addAttachment('audio')">Audio</div>
+                            <div class="attachment-option" onclick="addAttachment('poetry')">Poetry</div>
+                            <div class="attachment-option" onclick="addAttachment('haiku')">Haiku</div>
+                            <div class="attachment-option" onclick="addAttachment('story')">Short Story</div>
+                            <div class="attachment-option" onclick="addAttachment('quote')">Inspirational Quote</div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -109,17 +126,13 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div class="modal-backdrop" id="delete-modal-backdrop" style="display: none;"></div>
-<div class="custom-modal" id="deletePersonaModal" style="display: none;">
-    <div class="custom-modal-content">
-        <div class="custom-modal-header">
-            <h5 class="modal-title">Delete Persona</h5>
-            <button type="button" class="btn-close" onclick="closeDeleteModal()" aria-label="Close"></button>
-        </div>
-        <div class="custom-modal-body">
+<div class="modal" id="deletePersonaModal">
+    <div class="modal-content">
+        <h3>Delete Persona</h3>
+        <div class="modal-body">
             <p>Are you sure you want to delete this persona? This action cannot be undone.</p>
         </div>
-        <div class="custom-modal-footer">
+        <div class="modal-buttons">
             <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
             <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
         </div>
@@ -127,56 +140,149 @@
 </div>
 
 <style>
-    /* Enhanced persona card styling */
+    /* Persona card styling to match deck cards */
     .personas-container {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 24px;
-        margin-top: 24px;
+        padding: 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
     }
     
     .persona-card {
-        background-color: #ffffff;
-        border-radius: 12px;
+        position: relative;
+        background: white;
+        border-radius: 8px;
         padding: 20px;
-        width: 240px;
-        min-height: 160px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
         display: flex;
         flex-direction: column;
-        transition: transform 0.2s, box-shadow 0.2s;
-        border: 1px solid #e9ecef;
-        position: relative;
+        gap: 16px;
+        border: 1px solid var(--border-color);
+        height: 220px; /* Fixed height for all cards */
+        box-sizing: border-box;
     }
     
     .persona-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
     
-    /* Options menu styling (matching deck cards) */
+    .persona-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .persona-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+    
+    .persona-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow: hidden;
+    }
+    
+    .persona-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    
+    .persona-type, .persona-tone {
+        color: var(--text-color);
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+    
+    .persona-attachments {
+        display: flex;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 6px;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+        max-height: 60px;
+        overflow-y: auto;
+    }
+    
+    .attachment-label {
+        color: var(--text-secondary);
+    }
+    
+    .attachment-badge {
+        display: inline-flex;
+        align-items: center;
+        background-color: var(--hover-color);
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-size: 0.8125rem;
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+    
+    /* Create card styling */
+    .create-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 220px; /* Match other cards */
+        background-color: var(--background-color);
+        border: 2px dashed var(--border-color);
+        cursor: pointer;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+    
+    .create-card:hover {
+        background-color: var(--hover-color);
+        border-color: var(--accent-color);
+    }
+    
+    .persona-icon {
+        font-size: 1.75rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+    
+    /* Options menu styling */
     .persona-options {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        z-index: 10;
+        position: relative;
     }
     
     .options-dots {
         cursor: pointer;
-        font-size: 20px;
-        color: #6c757d;
-        width: 30px;
-        height: 30px;
+        font-size: 18px;
+        color: var(--text-secondary);
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
+        border-radius: 4px;
         transition: background-color 0.2s;
+        user-select: none;
     }
     
     .options-dots:hover {
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: var(--hover-color);
     }
     
     .options-menu {
@@ -184,190 +290,83 @@
         right: 0;
         top: 100%;
         background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         min-width: 120px;
         display: none;
-        z-index: 100;
+        z-index: 1000;
         overflow: hidden;
+        margin-top: 4px;
+        border: 1px solid var(--border-color);
     }
     
     .option-item {
-        padding: 10px 15px;
+        padding: 8px 12px;
         cursor: pointer;
         transition: background-color 0.2s;
+        white-space: nowrap;
+        font-size: 0.875rem;
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
     }
     
     .option-item:hover {
-        background-color: #f8f9fa;
+        background-color: var(--hover-color);
     }
     
-    .persona-info {
-        margin-top: 10px;
+    .delete-option {
+        color: var(--error-color);
     }
     
-    .persona-info h4 {
-        margin: 0 0 12px 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #212529;
-        padding-right: 30px; /* Make room for the options menu */
+    .delete-option:hover {
+        background-color: #ffebee;
     }
     
-    .persona-type {
-        font-size: 1rem;
-        color: #495057;
-        margin-bottom: 8px;
-        font-weight: 500;
-    }
-    
-    .persona-tone {
-        font-size: 0.9rem;
-        color: #6c757d;
-        margin-bottom: 5px;
-        font-style: italic;
-    }
-    
-    .create-card {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #f8f9fa;
-        border: 2px dashed #ced4da;
-        transition: background-color 0.2s;
-    }
-    
-    .create-card:hover {
-        background-color: #e9ecef;
-    }
-    
-    .create-card button {
-        font-size: 1.2rem;
-        padding: 12px 24px;
-        font-weight: 500;
-    }
-    
-    /* Updated modal styles to fix positioning */
+    /* Modal styling to match decks.html */
     .modal {
+        display: none;
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1001;
+        right: 0;
+        bottom: 0;
         background-color: rgba(0, 0, 0, 0.5);
-        overflow-y: auto;
-        padding: 20px 0;
+        z-index: 1000;
+    }
+    
+    .modal.active {
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     
     .modal-content {
-        background-color: white;
+        background-color: var(--background-color);
+        padding: 2rem;
         border-radius: 8px;
-        width: 90%;
         max-width: 500px;
-        max-height: 80vh; /* Reduced from 90vh to ensure buttons are visible */
-        overflow-y: auto;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        padding: 20px;
+        width: 90%;
         position: relative;
-        margin: auto; /* Center vertically when content is shorter than viewport */
-    }
-    
-    .custom-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1001;
-        display: none;
-    }
-    
-    .custom-modal-content {
-        background-color: white;
-        border-radius: 8px;
-        width: 90%;
-        max-width: 500px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        animation: modalSlideIn 0.3s ease;
+        margin: 2rem auto;
+        transform: translateY(0);
+        animation: modalFadeIn 0.3s ease-out;
+        max-height: calc(100vh - 4rem);
+        overflow-y: auto;
     }
     
-    @keyframes modalSlideIn {
+    @keyframes modalFadeIn {
         from {
-            transform: translateY(-50px);
             opacity: 0;
+            transform: translateY(-20px);
         }
         to {
-            transform: translateY(0);
             opacity: 1;
+            transform: translateY(0);
         }
     }
     
-    .custom-modal-header {
-        padding: 15px 20px;
-        border-bottom: 1px solid #e9ecef;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .custom-modal-header h5 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 500;
-    }
-    
-    .custom-modal-body {
-        padding: 20px;
-    }
-    
-    .custom-modal-footer {
-        padding: 15px 20px;
-        border-top: 1px solid #e9ecef;
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-    }
-    
-    .form-label {
-        font-weight: 500;
-        display: block;
-        margin-bottom: 8px;
-    }
-    
-    .form-control, .form-select {
-        width: 100%;
-        padding: 10px 12px;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        margin-bottom: 15px;
-    }
-    
-    .form-text {
-        color: #6c757d;
-        font-size: 0.875rem;
-        margin-top: -10px;
-        margin-bottom: 15px;
-    }
-    
-    .btn-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-    }
-    
-    .btn-check + label {
-        flex: 1;
-        text-align: center;
-    }
-    
-    /* Make the modal match the deck modal more closely */
+    /* Updated modal styles to fix positioning */
     .modal-open {
         overflow: hidden;
     }
@@ -388,6 +387,229 @@
         background-color: white;
         padding-top: 10px;
         border-top: 1px solid #eee;
+    }
+
+    /* Add these new styles for the attachment selector */
+    .attachment-selector {
+        margin-top: 10px;
+    }
+
+    .selected-attachments {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+        min-height: 32px;
+    }
+
+    .selected-attachment {
+        display: inline-flex;
+        align-items: center;
+        background-color: var(--hover-color);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 0.875rem;
+        color: var(--text-color);
+        gap: 6px;
+    }
+
+    .remove-attachment {
+        cursor: pointer;
+        color: var(--text-secondary);
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background-color: transparent;
+        transition: all 0.2s;
+    }
+
+    .remove-attachment:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+        color: var(--error-color);
+    }
+
+    .attachment-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .attachment-options {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--border-color);
+        z-index: 1000;
+        min-width: 160px;
+        margin-top: 4px;
+    }
+
+    .attachment-option {
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        color: var(--text-color);
+        font-size: 0.875rem;
+    }
+
+    .attachment-option:hover {
+        background-color: var(--hover-color);
+    }
+
+    /* Update dropdown styling */
+    select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background-color: white;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-size: 16px;
+    }
+
+    select:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 2px rgba(229, 92, 23, 0.1);
+    }
+
+    select:hover {
+        border-color: var(--accent-color);
+    }
+
+    /* Update form group styling */
+    .form-group {
+        margin-bottom: 24px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-color);
+        font-size: 1rem;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background-color: white;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 2px rgba(229, 92, 23, 0.1);
+    }
+
+    /* Update button styling */
+    .btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-secondary {
+        background-color: #6b7280;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background-color: #4b5563;
+    }
+
+    .btn-danger {
+        background-color: #ef4444;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background-color: #dc2626;
+    }
+
+    .btn:hover {
+        transform: translateY(-1px);
+    }
+
+    /* Add these new styles for the form group headers */
+    .form-group-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .form-label-type {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        background-color: var(--hover-color);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+
+    /* Add styles for the stat labels */
+    .stat-label {
+        color: var(--text-secondary);
+        margin-right: 6px;
+        font-weight: 500;
+    }
+
+    /* Media queries for responsive design */
+    @media screen and (max-width: 768px) {
+        .personas-container {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            padding: 16px;
+        }
+        
+        .persona-card {
+            height: 200px;
+            padding: 16px;
+        }
+        
+        .create-card {
+            height: 200px;
+        }
+    }
+    
+    @media screen and (max-width: 480px) {
+        .personas-container {
+            grid-template-columns: 1fr;
+            gap: 12px;
+            padding: 12px;
+        }
+        
+        .persona-card {
+            height: 180px;
+            padding: 12px;
+        }
+        
+        .create-card {
+            height: 180px;
+        }
     }
 </style>
 
@@ -412,6 +634,7 @@
 <script>
     // Global variables
     let currentPersonaId = null;
+    let selectedAttachments = new Set();
     
     // Modal functions moved to global scope
     function openModal() {
@@ -435,15 +658,21 @@
         saveBtn.textContent = 'Save';
         delete saveBtn.dataset.id;
         delete saveBtn.dataset.action;
+        
+        // Clear attachments
+        selectedAttachments.clear();
+        updateSelectedAttachments();
     }
     
     // Function to toggle options menu
-    function toggleOptionsMenu(personaId) {
-        event.stopPropagation();
+    function toggleOptionsMenu(personaId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
         const menu = document.getElementById(`options-menu-${personaId}`);
         
-        // Close all other menus
-        document.querySelectorAll('.options-menu').forEach(function(m) {
+        // Close all other menus first
+        document.querySelectorAll('.options-menu').forEach(m => {
             if (m.id !== `options-menu-${personaId}`) {
                 m.style.display = 'none';
             }
@@ -451,6 +680,14 @@
         
         // Toggle this menu
         menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        
+        // Position the menu relative to the dots
+        const dots = document.querySelector(`[onclick="toggleOptionsMenu('${personaId}', event)"]`);
+        if (dots && menu.style.display === 'block') {
+            const rect = dots.getBoundingClientRect();
+            menu.style.top = `${rect.bottom + window.scrollY}px`;
+            menu.style.left = `${rect.left + window.scrollX - 100}px`; // Align to the right of the dots
+        }
     }
     
     // Function to edit persona
@@ -472,13 +709,8 @@
                 document.getElementById('persona-tone').value = data.tone;
                 
                 // Set attachments
-                if (data.attachments) {
-                    const attachmentTypes = ['images', 'audio', 'poetry', 'haiku', 'story', 'quote'];
-                    attachmentTypes.forEach(type => {
-                        const checkbox = document.getElementById(`attachment-${type}`);
-                        if (checkbox) checkbox.checked = data.attachments.includes(type);
-                    });
-                }
+                selectedAttachments = new Set(data.attachments);
+                updateSelectedAttachments();
                 
                 // Change the save button to update
                 const saveBtn = document.getElementById('save-persona');
@@ -569,7 +801,7 @@
         console.log('Personas page loaded');
         
         // Get modal elements
-        const createBtn = document.getElementById('create-persona-btn');
+        const createBtn = document.querySelector('.create-card');
         const cancelBtn = document.getElementById('cancel-persona');
         const personaModal = document.getElementById('personaModal');
         
@@ -615,14 +847,8 @@
                 return;
             }
             
-            // Get attachment selections
-            const attachments = [];
-            if (document.getElementById('attachment-images').checked) attachments.push('images');
-            if (document.getElementById('attachment-audio').checked) attachments.push('audio');
-            if (document.getElementById('attachment-poetry').checked) attachments.push('poetry');
-            if (document.getElementById('attachment-haiku').checked) attachments.push('haiku');
-            if (document.getElementById('attachment-story').checked) attachments.push('story');
-            if (document.getElementById('attachment-quote').checked) attachments.push('quote');
+            // Get attachments from the selected-attachments
+            const attachments = Array.from(selectedAttachments);
             
             // Validate that at least one attachment is selected
             if (attachments.length === 0) {
@@ -658,21 +884,75 @@
             })
             .then(data => {
                 if (isUpdate) {
-                    // Update the existing card
                     updatePersonaCard(data);
                 } else {
-                    // Add a new persona card
                     addPersonaCard(data);
                 }
                 
-                // Close the modal
+                // Close the modal and reset attachments
                 closeModal();
+                selectedAttachments.clear();
+                updateSelectedAttachments();
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('There was a problem saving your persona. Please try again.');
             });
         });
+
+        // Initialize modals as hidden
+        const deleteModal = document.getElementById('deletePersonaModal');
+        if (deleteModal) {
+            deleteModal.style.display = 'none';
+        }
+
+        // Update persona click handler
+        const personaCards = document.querySelectorAll('.persona-card');
+        personaCards.forEach(card => {
+            if (!card.classList.contains('create-card')) {
+                card.addEventListener('click', function(e) {
+                    // Only proceed if we didn't click the options menu or its children
+                    if (!e.target.closest('.persona-options')) {
+                        const personaId = this.dataset.id;
+                        // Handle card click (if needed)
+                    }
+                });
+            }
+        });
+
+        // Close menus when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.options-dots') && !e.target.closest('.options-menu')) {
+                document.querySelectorAll('.options-menu').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            }
+        });
+
+        // Update delete confirmation handler
+        window.confirmDeletePersona = function(personaId, event) {
+            if (event) {
+                event.stopPropagation();
+            }
+            
+            // Close all menus
+            document.querySelectorAll('.options-menu').forEach(menu => {
+                menu.style.display = 'none';
+            });
+            
+            currentPersonaId = personaId;
+            const deleteModal = document.getElementById('deletePersonaModal');
+            deleteModal.classList.add('active');
+            deleteModal.style.display = 'flex';
+        };
+
+        // Update close delete modal function
+        window.closeDeleteModal = function() {
+            const deleteModal = document.getElementById('deletePersonaModal');
+            deleteModal.classList.remove('active');
+            deleteModal.style.display = 'none';
+            currentPersonaId = null;
+        };
     });
     
     // Function to add a new persona card to the UI
@@ -685,17 +965,35 @@
         card.dataset.id = persona.id;
         
         card.innerHTML = `
-            <div class="persona-options">
-                <div class="options-dots" onclick="toggleOptionsMenu('${persona.id}')">⋮</div>
-                <div class="options-menu" id="options-menu-${persona.id}">
-                    <div class="option-item" onclick="editPersona('${persona.id}')">Edit</div>
-                    <div class="option-item" onclick="confirmDeletePersona('${persona.id}')">Delete</div>
+            <div class="persona-header">
+                <div class="persona-name">${persona.name}</div>
+                <div class="persona-options">
+                    <div class="options-dots" onclick="toggleOptionsMenu('${persona.id}')">⋮</div>
+                    <div class="options-menu" id="options-menu-${persona.id}">
+                        <div class="option-item" onclick="editPersona('${persona.id}')">Edit</div>
+                        <div class="option-item delete-option" onclick="confirmDeletePersona('${persona.id}')">Delete</div>
+                    </div>
                 </div>
             </div>
-            <div class="persona-info">
-                <h4>${persona.name}</h4>
-                <p class="persona-type">${persona.persona_type}</p>
-                <p class="persona-tone">${persona.tone}</p>
+            
+            <div class="persona-content">
+                <div class="persona-stats">
+                    <div class="persona-type">
+                        <i class="fas fa-user"></i>
+                        <span class="stat-label">personality:</span>
+                        ${persona.persona_type}
+                    </div>
+                    <div class="persona-tone">
+                        <i class="fas fa-comment"></i>
+                        <span class="stat-label">tone:</span>
+                        ${persona.tone}
+                    </div>
+                    <div class="persona-attachments">
+                        <i class="fas fa-paperclip"></i>
+                        <span class="attachment-label">Attachments:</span>
+                        ${persona.attachments.map(attachment => `<span class="attachment-badge">${attachment}</span>`).join('')}
+                    </div>
+                </div>
             </div>
         `;
         
@@ -707,10 +1005,48 @@
     function updatePersonaCard(persona) {
         const card = document.querySelector(`.persona-card[data-id="${persona.id}"]`);
         if (card) {
-            card.querySelector('h4').textContent = persona.name;
+            card.querySelector('.persona-name').textContent = persona.name;
             card.querySelector('.persona-type').textContent = persona.persona_type;
             card.querySelector('.persona-tone').textContent = persona.tone;
+            card.querySelector('.persona-attachments').innerHTML = persona.attachments.map(attachment => `<span class="attachment-badge">${attachment}</span>`).join('');
         }
+    }
+
+    // Add these new functions for attachment handling
+    function toggleAttachmentDropdown() {
+        const options = document.getElementById('attachment-options');
+        options.style.display = options.style.display === 'block' ? 'none' : 'block';
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function closeDropdown(e) {
+            if (!e.target.closest('.attachment-dropdown')) {
+                options.style.display = 'none';
+                document.removeEventListener('click', closeDropdown);
+            }
+        });
+    }
+
+    function addAttachment(type) {
+        if (!selectedAttachments.has(type)) {
+            selectedAttachments.add(type);
+            updateSelectedAttachments();
+        }
+        document.getElementById('attachment-options').style.display = 'none';
+    }
+
+    function removeAttachment(type) {
+        selectedAttachments.delete(type);
+        updateSelectedAttachments();
+    }
+
+    function updateSelectedAttachments() {
+        const container = document.getElementById('selected-attachments');
+        container.innerHTML = Array.from(selectedAttachments).map(type => `
+            <div class="selected-attachment">
+                ${type}
+                <span class="remove-attachment" onclick="removeAttachment('${type}')">&times;</span>
+            </div>
+        `).join('');
     }
 </script>
 {% endblock %} 
