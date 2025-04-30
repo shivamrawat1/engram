@@ -47,10 +47,10 @@
                     <td>
                         <div class="card-options">
                             <div class="options-dots" data-card-id="{{ card.id }}">⋮</div>
-                            <div class="options-menu card-options-menu" id="card-options-menu-{{ card.id }}">
-                                <div class="option-item edit-card" data-card-id="{{ card.id }}" data-question="{{ card.question }}" data-answer="{{ card.answer }}">Edit</div>
-                                <div class="option-item delete-card" data-card-id="{{ card.id }}">Delete</div>
-                                <div class="option-item reset-card" data-card-id="{{ card.id }}">Reset Streak</div>
+                            <div class="options-menu" id="options-menu-{{ card.id }}">
+                                <div class="option-item" onclick="editCard('{{ card.id }}', '{{ card.question|escapejs }}', '{{ card.answer|escapejs }}', event)">Edit</div>
+                                <div class="option-item" onclick="confirmDeleteCard('{{ card.id }}', event)">Delete</div>
+                                <div class="option-item" onclick="resetCardStreak('{{ card.id }}', event)">Reset Streak</div>
                             </div>
                         </div>
                     </td>
@@ -182,7 +182,37 @@
         cancelCreateCard.addEventListener('click', function() {
             createCardModal.style.display = 'none';
         });
+
+        // Options menu functionality
+        const optionsDots = document.querySelectorAll('.options-dots');
         
+        optionsDots.forEach(dots => {
+            dots.addEventListener('click', function(event) {
+                event.stopPropagation();
+                const cardId = this.getAttribute('data-card-id');
+                const menu = document.getElementById(`options-menu-${cardId}`);
+                
+                // Close all other menus first
+                document.querySelectorAll('.options-menu').forEach(m => {
+                    if (m.id !== `options-menu-${cardId}`) {
+                        m.style.display = 'none';
+                    }
+                });
+                
+                // Toggle this menu
+                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+            });
+        });
+
+        // Close menus when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.matches('.options-dots') && !event.target.closest('.options-menu')) {
+                document.querySelectorAll('.options-menu').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            }
+        });
+
         // Edit card functionality
         const editBtns = document.querySelectorAll('.edit-card');
         const editCardModal = document.getElementById('edit-card-modal');
@@ -190,8 +220,8 @@
         const editCardForm = document.getElementById('edit-card-form');
         
         editBtns.forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
+            btn.addEventListener('click', function(event) {
+                event.stopPropagation();
                 const cardId = this.getAttribute('data-card-id');
                 const question = this.getAttribute('data-question');
                 const answer = this.getAttribute('data-answer');
@@ -219,8 +249,8 @@
         const deleteCardForm = document.getElementById('delete-card-form');
         
         deleteBtns.forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
+            btn.addEventListener('click', function(event) {
+                event.stopPropagation();
                 const cardId = this.getAttribute('data-card-id');
                 deleteCardForm.action = `/users/card/${cardId}/delete/`;
                 deleteCardModal.style.display = 'block';
@@ -235,47 +265,19 @@
         cancelDeleteCard.addEventListener('click', function() {
             deleteCardModal.style.display = 'none';
         });
-        
-        // Options menu toggle
-        const optionsDots = document.querySelectorAll('.options-dots');
-        
-        optionsDots.forEach(dots => {
-            dots.addEventListener('click', function() {
-                const cardId = this.getAttribute('data-card-id');
-                const menu = document.getElementById(`card-options-menu-${cardId}`);
-                
-                // Close all other menus first
-                document.querySelectorAll('.options-menu').forEach(m => {
-                    if (m !== menu) {
-                        m.style.display = 'none';
-                    }
-                });
-                
-                // Toggle this menu
-                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-            });
-        });
-        
-        // Close menus when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.matches('.options-dots')) {
-                document.querySelectorAll('.options-menu').forEach(menu => {
-                    menu.style.display = 'none';
-                });
-            }
-        });
-        
+
         // Reset card streak functionality
-        document.querySelectorAll('.reset-card').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
+        const resetBtns = document.querySelectorAll('.reset-card');
+        resetBtns.forEach(btn => {
+            btn.addEventListener('click', function(event) {
+                event.stopPropagation();
                 const cardId = this.getAttribute('data-card-id');
                 if (confirm('Are you sure you want to reset this card\'s progress? This will set the streak back to zero.')) {
                     window.location.href = `/users/card/${cardId}/reset-streak/`;
                 }
             });
         });
-        
+
         // Analyze deck functionality
         const analyzeDeckBtn = document.getElementById('analyze-deck-btn');
         const analyzeDeckModal = document.getElementById('analyze-deck-modal');
@@ -458,6 +460,52 @@
             editCardAnalysisContainer.style.display = 'none';
         });
     });
+
+    // Function to edit card
+    function editCard(cardId, question, answer, event) {
+        event.stopPropagation();
+        
+        // Close all menus
+        document.querySelectorAll('.options-menu').forEach(function(menu) {
+            menu.style.display = 'none';
+        });
+        
+        // Populate the edit form
+        document.getElementById('edit_question').value = question;
+        document.getElementById('edit_answer').value = answer;
+        document.getElementById('edit-card-form').action = `/users/card/${cardId}/edit/`;
+        
+        // Show the edit modal
+        document.getElementById('edit-card-modal').style.display = 'block';
+    }
+
+    // Function to confirm delete card
+    function confirmDeleteCard(cardId, event) {
+        event.stopPropagation();
+        
+        // Close all menus
+        document.querySelectorAll('.options-menu').forEach(function(menu) {
+            menu.style.display = 'none';
+        });
+        
+        // Set the form action and show the delete modal
+        document.getElementById('delete-card-form').action = `/users/card/${cardId}/delete/`;
+        document.getElementById('delete-card-modal').style.display = 'block';
+    }
+
+    // Function to reset card streak
+    function resetCardStreak(cardId, event) {
+        event.stopPropagation();
+        
+        // Close all menus
+        document.querySelectorAll('.options-menu').forEach(function(menu) {
+            menu.style.display = 'none';
+        });
+        
+        if (confirm('Are you sure you want to reset this card\'s progress? This will set the streak back to zero.')) {
+            window.location.href = `/users/card/${cardId}/reset-streak/`;
+        }
+    }
 </script>
 
 <style>
@@ -626,5 +674,54 @@
     
     /* Add Font Awesome if not already included */
     @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
+
+    /* Card options menu styling */
+    .card-options {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .options-dots {
+        cursor: pointer;
+        font-size: 20px;
+        color: #6c757d;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background-color 0.2s;
+        user-select: none;
+    }
+    
+    .options-dots:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    .options-menu {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        min-width: 120px;
+        display: none;
+        z-index: 1000;
+        overflow: hidden;
+        margin-top: 5px;
+    }
+    
+    .option-item {
+        padding: 10px 15px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        white-space: nowrap;
+    }
+    
+    .option-item:hover {
+        background-color: #f8f9fa;
+    }
 </style>
 {% endblock %} 
