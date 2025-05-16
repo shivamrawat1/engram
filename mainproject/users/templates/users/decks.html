@@ -15,7 +15,7 @@
         
         <!-- Existing Decks -->
         {% for deck in decks %}
-        <div class="deck-card">
+        <div class="deck-card" data-deck-id="{{ deck.id }}">
             <div class="deck-header">
                 <div class="deck-name">{{ deck.name }}</div>
                 <div class="deck-options">
@@ -234,6 +234,9 @@ function deleteDeck(deckId, event) {
 function managePersonas(deckId, event) {
     event.stopPropagation();
     
+    // Set the current deck ID globally for use in savePersonaForDeck
+    window.currentDeckId = deckId;
+    
     // Close all menus
     document.querySelectorAll('.options-menu').forEach(function(menu) {
         menu.style.display = 'none';
@@ -303,7 +306,7 @@ function savePersonaForDeck() {
     // Get the CSRF token
     const csrftoken = getCookie('csrftoken');
     
-    fetch(`/users/decks/${currentDeckId}/update-personas/`, {
+    fetch(`/users/decks/${window.currentDeckId}/update-personas/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -323,7 +326,7 @@ function savePersonaForDeck() {
     })
     .then(data => {
         // Update the UI to show the attached persona
-        updateDeckPersonaUI(currentDeckId, data.personas);
+        updateDeckPersonaUI(window.currentDeckId, data.personas);
         
         // Close the modal
         document.getElementById('manage-personas-modal').style.display = 'none';
@@ -341,33 +344,26 @@ function savePersonaForDeck() {
 
 // Function to update the UI with attached persona
 function updateDeckPersonaUI(deckId, personas) {
-    const deckCard = document.querySelector(`.deck-card[onclick*="${deckId}"]`);
+    const deckCard = document.querySelector(`.deck-card[data-deck-id="${deckId}"]`);
     if (!deckCard) return;
     
     let personasDiv = deckCard.querySelector('.deck-personas');
     
     if (personas.length === 0) {
-        // Remove the personas div if it exists
-        if (personasDiv) {
-            personasDiv.remove();
-        }
+        // Show the add persona badge with click handler
+        personasDiv.innerHTML = `
+            <i class="fas fa-robot"></i>
+            <span class="persona-label">Reminders by:</span>
+            <span class="persona-badge add-persona" onclick="managePersonas('${deckId}', event)">Add Persona</span>
+        `;
         return;
     }
     
-    // Create or update the personas div
-    if (!personasDiv) {
-        personasDiv = document.createElement('div');
-        personasDiv.className = 'deck-personas';
-        deckCard.querySelector('.deck-content').insertBefore(
-            personasDiv, 
-            deckCard.querySelector('.deck-actions')
-        );
-    }
-    
-    // Update the content - now we only show one persona
+    // Update the content - show the persona badge with click handler
     personasDiv.innerHTML = `
         <i class="fas fa-robot"></i>
-        <span class="persona-badge">${personas[0].name}</span>
+        <span class="persona-label">Reminders by:</span>
+        <span class="persona-badge" onclick="managePersonas('${deckId}', event)">${personas[0].name}</span>
     `;
 }
 
