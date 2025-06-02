@@ -3,6 +3,8 @@
 **Engram** is an intelligent, AI-powered companion designed to make your learning faster, deeper, and longer-lasting — by blending the **Science of Learning** with cutting-edge **AI technologies** for a truly adaptive study experience.
 
 ---
+![Alt text](assets/Sample Review.png)
+
 
 ## 🧠 Learning Science + 🤖 AI Integration
 
