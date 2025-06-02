@@ -6,7 +6,7 @@ app_name = 'users'
 
 urlpatterns = [
     path('', views.landing_page, name='landing_page'),
-    path('login/', auth_views.LoginView.as_view(template_name='users/login.html'), name='login'),
+    path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('register/', views.register, name='register'),
     path('dashboard/', views.dashboard, name='dashboard'),

@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
-from django.contrib.auth import logout
+from django.contrib.auth import logout, login, authenticate
 from django.contrib.auth.decorators import login_required
 from .models import Deck, Card, Persona  # Import the models
 from django.utils import timezone
@@ -27,6 +27,7 @@ import uuid
 from django.db.models import Q
 import re
 import time
+from .forms import CustomUserCreationForm, CustomAuthenticationForm
 
 # Create your views here.
 
@@ -36,19 +37,33 @@ def landing_page(request):
     return render(request, 'users/landing_page.html')
 
 def register(request):
-    if request.user.is_authenticated:
-        return redirect('users:dashboard')
-    
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            form.save()
-            username = form.cleaned_data.get('username')
-            messages.success(request, f'Account created for {username}! You can now log in.')
-            return redirect('users:login')
+            user = form.save()
+            login(request, user)
+            messages.success(request, 'Registration successful!')
+            return redirect('home')  # Replace with your home URL name
     else:
-        form = UserCreationForm()
-    return render(request, 'users/register.html', {'form': form})
+        form = CustomUserCreationForm()
+    return render(request, 'users/authentication/register.html', {'form': form})
+
+def login_view(request):
+    if request.method == 'POST':
+        form = CustomAuthenticationForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data.get('email')
+            password = form.cleaned_data.get('password')
+            user = authenticate(request, email=email, password=password)
+            if user is not None:
+                login(request, user)
+                messages.success(request, 'Login successful!')
+                return redirect('home')  # Replace with your home URL name
+            else:
+                messages.error(request, 'Invalid email or password.')
+    else:
+        form = CustomAuthenticationForm()
+    return render(request, 'users/authentication/login.html', {'form': form})
 
 # Add this new view for logout
 def logout_view(request):
@@ -1683,3 +1698,7 @@ def mark_interleaved_card_reviewed(request, card_id):
     
     # Continue to the next card
     return redirect('users:review')
+
+@login_required
+def profile(request):
+    return render(request, 'users/profile.html')

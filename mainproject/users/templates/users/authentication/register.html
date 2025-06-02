@@ -1,0 +1,61 @@
+{% extends "users/base.html" %}
+{% load socialaccount %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 0 auto; padding: 20px;">
+    <h2 style="text-align: center; margin-bottom: 30px;">Register</h2>
+    <form method="post" action="{% url 'account_signup' %}">
+        {% csrf_token %}
+        <div class="form-group" style="margin-bottom: 15px;">
+            {{ form.first_name.label_tag }}
+            {{ form.first_name }}
+            {% if form.first_name.errors %}
+                <div class="error">{{ form.first_name.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group" style="margin-bottom: 15px;">
+            {{ form.last_name.label_tag }}
+            {{ form.last_name }}
+            {% if form.last_name.errors %}
+                <div class="error">{{ form.last_name.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group" style="margin-bottom: 15px;">
+            {{ form.email.label_tag }}
+            {{ form.email }}
+            {% if form.email.errors %}
+                <div class="error">{{ form.email.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group" style="margin-bottom: 15px;">
+            {{ form.password1.label_tag }}
+            {{ form.password1 }}
+            {% if form.password1.errors %}
+                <div class="error">{{ form.password1.errors }}</div>
+            {% endif %}
+            <small style="display: block; margin-top: 5px; color: #666;">{{ form.password1.help_text }}</small>
+        </div>
+        <div class="form-group" style="margin-bottom: 20px;">
+            {{ form.password2.label_tag }}
+            {{ form.password2 }}
+            {% if form.password2.errors %}
+                <div class="error">{{ form.password2.errors }}</div>
+            {% endif %}
+            <small style="display: block; margin-top: 5px; color: #666;">{{ form.password2.help_text }}</small>
+        </div>
+        <button type="submit" class="btn" style="width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Register</button>
+    </form>
+    <div class="social-login" style="margin-top: 30px; text-align: center;">
+        <p style="margin-bottom: 15px;">Or register with:</p>
+        {% get_providers as socialaccount_providers %}
+        {% for provider in socialaccount_providers %}
+            {% if provider.id == 'google' %}
+                <a href="{% provider_login_url provider.id process='signup' %}" class="btn btn-google" style="display: inline-block; background-color: #DB4437; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; width: 100%; box-sizing: border-box;">
+                    <i class="fab fa-google"></i> Register with Google
+                </a>
+            {% endif %}
+        {% endfor %}
+    </div>
+    <p style="margin-top: 20px; text-align: center;">Already have an account? <a href="{% url 'users:login' %}">Login here</a></p>
+</div>
+{% endblock %} 
